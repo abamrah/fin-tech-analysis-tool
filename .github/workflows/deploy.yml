@@ -17,6 +17,6 @@ jobs:
           curl -fsSL https://railway.com/install.sh | sh
 
       - name: Deploy to Railway
-        run: railway up -d -s fintech-backend
+        run: railway up -d -s fintech-backend -p 81dc46f1-1710-4015-9dd1-eab90c1a6db9 -e production
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
