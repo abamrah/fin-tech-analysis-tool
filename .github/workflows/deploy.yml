@@ -13,8 +13,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Railway CLI
-        run: |
-          curl -fsSL https://railway.com/install.sh | sh
+        run: npm install -g @railway/cli
 
       - name: Deploy to Railway
         run: railway up -d -s fintech-backend -p 81dc46f1-1710-4015-9dd1-eab90c1a6db9 -e production
