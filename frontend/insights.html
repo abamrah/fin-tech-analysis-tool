@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financial Insights — Financial Intelligence Engine</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        .insights-hero {
+            background: linear-gradient(135deg, rgba(59,130,246,0.12) 0%, rgba(139,92,246,0.12) 100%);
+            border: 1px solid rgba(59,130,246,0.25);
+            border-radius: var(--radius);
+            padding: 2rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        .insights-hero h1 { font-size: 1.75rem; margin-bottom: 0.5rem; }
+        .insights-hero p { color: var(--text-secondary); max-width: 600px; margin: 0 auto 1.5rem; }
+
+        .data-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+        }
+        .data-badge {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 0.35rem 0.85rem;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .data-badge .count {
+            font-weight: 600;
+            color: var(--accent);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .btn-generate {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            color: white;
+            border: none;
+            padding: 0.9rem 2.5rem;
+            border-radius: var(--radius-sm);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            letter-spacing: 0.02em;
+        }
+        .btn-generate:hover { transform: translateY(-1px); box-shadow: 0 8px 25px rgba(59,130,246,0.25); }
+        .btn-generate:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        .loading-container {
+            text-align: center;
+            padding: 3rem 1rem;
+        }
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 1.5rem;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loading-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            max-width: 320px;
+            margin: 0 auto;
+        }
+        .loading-step {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            transition: all 0.3s;
+        }
+        .loading-step.active { color: var(--accent); font-weight: 500; }
+        .loading-step.done { color: var(--success); }
+        .loading-step .icon { width: 18px; text-align: center; }
+
+        /* Insights report styling */
+        .insights-report {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 2rem;
+            margin-top: 1.5rem;
+            line-height: 1.75;
+        }
+        .insights-report h3 {
+            color: var(--text-primary);
+            margin: 1.75rem 0 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 1.15rem;
+        }
+        .insights-report h3:first-child { margin-top: 0; }
+        .insights-report h4 {
+            color: var(--accent);
+            margin: 1.25rem 0 0.5rem;
+            font-size: 1rem;
+        }
+        .insights-report p {
+            color: var(--text-secondary);
+            margin: 0.5rem 0;
+        }
+        .insights-report strong {
+            color: var(--text-primary);
+        }
+        .insights-report ul, .insights-report ol {
+            margin: 0.5rem 0 0.5rem 1.5rem;
+            color: var(--text-secondary);
+        }
+        .insights-report li {
+            margin: 0.35rem 0;
+        }
+        .insights-report li strong {
+            color: var(--text-primary);
+        }
+        .insights-report table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0.75rem 0;
+        }
+        .insights-report table th,
+        .insights-report table td {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--border);
+            font-size: 0.85rem;
+        }
+        .insights-report table th {
+            background: var(--bg-input);
+            color: var(--text-primary);
+            font-weight: 600;
+            text-align: left;
+        }
+        .insights-report table td {
+            color: var(--text-secondary);
+        }
+        .insights-report code {
+            background: var(--bg-input);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85em;
+            color: var(--accent);
+        }
+
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .report-meta {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .kpi-mini-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+        .kpi-mini {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 1rem;
+            text-align: center;
+        }
+        .kpi-mini .label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+        .kpi-mini .value {
+            font-size: 1.1rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .kpi-mini .value.positive { color: var(--success); }
+        .kpi-mini .value.negative { color: var(--danger); }
+        .kpi-mini .value.neutral { color: var(--accent); }
+    </style>
+</head>
+<body>
+    <div class="main-content">
+        <div id="alert-container"></div>
+
+        <!-- Hero -->
+        <div class="insights-hero" id="hero-section">
+            <h1>🧠 AI Financial Insights</h1>
+            <p>Get a comprehensive, AI-powered analysis of your entire financial life. The engine will analyze every transaction, subscription, budget, goal, and trend to give you personalized recommendations.</p>
+
+            <div class="data-badges" id="data-badges">
+                <div class="data-badge">📊 Loading data sources...</div>
+            </div>
+
+            <button class="btn-generate" id="btn-generate" onclick="generateInsights()" disabled>
+                ⏳ Preparing...
+            </button>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading-section" class="hidden">
+            <div class="loading-container">
+                <div class="loading-spinner"></div>
+                <h3 style="margin-bottom:0.5rem;">Analyzing your finances...</h3>
+                <p class="text-muted text-sm" style="margin-bottom:1.5rem;">This takes 15-30 seconds as the AI reviews all your data</p>
+                <div class="loading-steps">
+                    <div class="loading-step active" id="step-1"><span class="icon">◉</span> Gathering transactions & accounts</div>
+                    <div class="loading-step" id="step-2"><span class="icon">○</span> Analyzing spending patterns</div>
+                    <div class="loading-step" id="step-3"><span class="icon">○</span> Reviewing subscriptions & recurring</div>
+                    <div class="loading-step" id="step-4"><span class="icon">○</span> Evaluating savings & goals</div>
+                    <div class="loading-step" id="step-5"><span class="icon">○</span> Generating AI recommendations</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPI Summary (shown after generation) -->
+        <div id="kpi-section" class="hidden">
+            <div class="kpi-mini-grid" id="kpi-mini-grid"></div>
+        </div>
+
+        <!-- Report Content -->
+        <div id="report-section" class="hidden">
+            <div class="report-header">
+                <h2>📋 Your Financial Health Report</h2>
+                <div class="report-meta">
+                    <span id="report-time"></span>
+                    <button class="btn btn-secondary btn-sm" onclick="generateInsights()">🔄 Regenerate</button>
+                </div>
+            </div>
+            <div class="insights-report" id="insights-content"></div>
+        </div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/navbar.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!requireAuth()) return;
+            await loadDataSummary();
+        });
+
+        async function loadDataSummary() {
+            try {
+                // Quick fetch to show what data we have
+                const [overview, recurring, goals] = await Promise.all([
+                    apiGetOverview({}).catch(() => ({})),
+                    apiGetRecurring({}).catch(() => []),
+                    apiGetGoals().catch(() => []),
+                ]);
+
+                const badges = [];
+                const txnCount = overview.transaction_count || 0;
+                if (txnCount > 0) badges.push({ icon: '💳', label: 'Transactions', count: txnCount });
+                if (overview.total_income) badges.push({ icon: '💰', label: 'Income', count: formatCurrency(overview.total_income) });
+                if (overview.total_expenses) badges.push({ icon: '📉', label: 'Expenses', count: formatCurrency(overview.total_expenses) });
+                if (recurring && recurring.length > 0) badges.push({ icon: '🔄', label: 'Recurring', count: recurring.length });
+                if (goals && goals.length > 0) badges.push({ icon: '🎯', label: 'Goals', count: goals.length });
+
+                const container = document.getElementById('data-badges');
+                if (badges.length > 0) {
+                    container.innerHTML = badges.map(b =>
+                        `<div class="data-badge"><span>${b.icon}</span> ${b.label}: <span class="count">${b.count}</span></div>`
+                    ).join('');
+                } else {
+                    container.innerHTML = '<div class="data-badge">⚠️ No financial data found. Upload statements first.</div>';
+                }
+
+                const btn = document.getElementById('btn-generate');
+                if (txnCount > 0) {
+                    btn.disabled = false;
+                    btn.textContent = '🚀 Generate Insights Report';
+                } else {
+                    btn.textContent = '📄 Upload statements first';
+                }
+            } catch (err) {
+                console.error('Failed to load data summary:', err);
+                document.getElementById('btn-generate').disabled = false;
+                document.getElementById('btn-generate').textContent = '🚀 Generate Insights Report';
+            }
+        }
+
+        let loadingInterval = null;
+
+        async function generateInsights() {
+            const btn = document.getElementById('btn-generate');
+            btn.disabled = true;
+            btn.textContent = '⏳ Generating...';
+
+            // Show loading, hide report
+            document.getElementById('loading-section').classList.remove('hidden');
+            document.getElementById('report-section').classList.add('hidden');
+            document.getElementById('kpi-section').classList.add('hidden');
+
+            // Animate loading steps
+            startLoadingAnimation();
+
+            try {
+                const result = await apiGenerateInsights();
+
+                stopLoadingAnimation();
+                document.getElementById('loading-section').classList.add('hidden');
+
+                if (result.insights) {
+                    renderKPIs(result.data_summary || {});
+                    renderReport(result.insights, result.generated_at);
+                }
+            } catch (err) {
+                stopLoadingAnimation();
+                document.getElementById('loading-section').classList.add('hidden');
+                showAlert(document.getElementById('alert-container'), err.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔄 Regenerate Insights';
+            }
+        }
+
+        function startLoadingAnimation() {
+            const steps = [
+                document.getElementById('step-1'),
+                document.getElementById('step-2'),
+                document.getElementById('step-3'),
+                document.getElementById('step-4'),
+                document.getElementById('step-5'),
+            ];
+            let currentStep = 0;
+            const stepDuration = 5000; // 5 seconds per step
+
+            // Reset all steps
+            steps.forEach(s => { s.className = 'loading-step'; s.querySelector('.icon').textContent = '○'; });
+            steps[0].className = 'loading-step active';
+            steps[0].querySelector('.icon').textContent = '◉';
+
+            loadingInterval = setInterval(() => {
+                if (currentStep < steps.length) {
+                    steps[currentStep].className = 'loading-step done';
+                    steps[currentStep].querySelector('.icon').textContent = '✓';
+                }
+                currentStep++;
+                if (currentStep < steps.length) {
+                    steps[currentStep].className = 'loading-step active';
+                    steps[currentStep].querySelector('.icon').textContent = '◉';
+                }
+            }, stepDuration);
+        }
+
+        function stopLoadingAnimation() {
+            if (loadingInterval) {
+                clearInterval(loadingInterval);
+                loadingInterval = null;
+            }
+            // Mark all done
+            for (let i = 1; i <= 5; i++) {
+                const step = document.getElementById(`step-${i}`);
+                step.className = 'loading-step done';
+                step.querySelector('.icon').textContent = '✓';
+            }
+        }
+
+        function renderKPIs(summary) {
+            if (!summary || Object.keys(summary).length === 0) return;
+
+            const kpis = [];
+            if (summary.transaction_count) kpis.push({ label: 'Transactions Analyzed', value: summary.transaction_count.toLocaleString(), cls: 'neutral' });
+            if (summary.total_income) kpis.push({ label: 'Total Income', value: formatCurrency(summary.total_income), cls: 'positive' });
+            if (summary.total_expenses) kpis.push({ label: 'Total Expenses', value: formatCurrency(summary.total_expenses), cls: 'negative' });
+            if (summary.savings_rate !== undefined) kpis.push({ label: 'Savings Rate', value: summary.savings_rate.toFixed(1) + '%', cls: summary.savings_rate >= 20 ? 'positive' : summary.savings_rate >= 10 ? 'neutral' : 'negative' });
+            if (summary.net_worth !== undefined && summary.net_worth !== 0) kpis.push({ label: 'Net Worth', value: formatCurrency(summary.net_worth), cls: summary.net_worth >= 0 ? 'positive' : 'negative' });
+            if (summary.months_of_data) kpis.push({ label: 'Months of Data', value: summary.months_of_data, cls: 'neutral' });
+
+            if (kpis.length > 0) {
+                document.getElementById('kpi-mini-grid').innerHTML = kpis.map(k => `
+                    <div class="kpi-mini">
+                        <div class="label">${k.label}</div>
+                        <div class="value ${k.cls}">${k.value}</div>
+                    </div>
+                `).join('');
+                document.getElementById('kpi-section').classList.remove('hidden');
+            }
+        }
+
+        function renderReport(markdown, generatedAt) {
+            document.getElementById('insights-content').innerHTML = formatInsightsMarkdown(markdown);
+
+            if (generatedAt) {
+                const t = new Date(generatedAt + 'Z');
+                document.getElementById('report-time').textContent = 'Generated: ' + t.toLocaleString();
+            }
+
+            document.getElementById('report-section').classList.remove('hidden');
+
+            // Scroll to report
+            document.getElementById('report-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function formatInsightsMarkdown(text) {
+            let html = text
+                // Bold
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                // Italic
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                // Inline code
+                .replace(/`(.*?)`/g, '<code>$1</code>')
+                // H3
+                .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+                // H4
+                .replace(/^#### (.*$)/gm, '<h4>$1</h4>')
+                // H2
+                .replace(/^## (.*$)/gm, '<h3>$1</h3>')
+                // Horizontal rule
+                .replace(/^---$/gm, '<hr style="border:none;border-top:1px solid var(--border);margin:1.5rem 0;">')
+                // Unordered lists
+                .replace(/^[•\-\*] (.*$)/gm, '<li>$1</li>')
+                // Numbered lists  
+                .replace(/^\d+\.\s(.*$)/gm, '<li>$1</li>')
+                // Tables (basic support)
+                .replace(/^\|(.+)\|$/gm, (match, content) => {
+                    const cells = content.split('|').map(c => c.trim());
+                    if (cells.every(c => /^[-:]+$/.test(c))) return '<!--table-sep-->';
+                    return '<tr>' + cells.map(c => `<td>${c}</td>`).join('') + '</tr>';
+                })
+                // Paragraphs
+                .replace(/\n\n/g, '</p><p>')
+                .replace(/\n/g, '<br>');
+
+            // Wrap consecutive <li> in <ul>
+            html = html.replace(/(<li>.*?<\/li>(?:<br>)?)+/gs, (match) => {
+                return '<ul>' + match.replace(/<br>/g, '') + '</ul>';
+            });
+
+            // Wrap consecutive <tr> in <table>
+            html = html.replace(/((?:<tr>.*?<\/tr>(?:<br>)?)+)/gs, (match) => {
+                const clean = match.replace(/<br>/g, '').replace(/<!--table-sep-->/g, '');
+                // Make first row a header
+                const rows = clean.match(/<tr>.*?<\/tr>/gs);
+                if (rows && rows.length > 1) {
+                    const header = rows[0].replace(/<td>/g, '<th>').replace(/<\/td>/g, '</th>');
+                    return '<table><thead>' + header + '</thead><tbody>' + rows.slice(1).join('') + '</tbody></table>';
+                }
+                return '<table>' + clean + '</table>';
+            });
+
+            // Clean up empty paragraphs
+            html = html.replace(/<p><\/p>/g, '');
+            html = html.replace(/<!--table-sep-->/g, '');
+
+            return `<div>${html}</div>`;
+        }
+    </script>
+</body>
+</html>

@@ -9,6 +9,7 @@ function renderNavbar() {
 
     const navItems = [
         { href: 'dashboard.html', icon: '📊', label: 'Dashboard' },
+        { href: 'insights.html', icon: '🧠', label: 'AI Insights' },
         { href: 'transactions.html', icon: '💳', label: 'Transactions' },
         { href: 'upload.html', icon: '📄', label: 'Upload Statement' },
         { href: 'planner.html', icon: '📋', label: 'Financial Planner' },

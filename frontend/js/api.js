@@ -259,6 +259,10 @@ async function apiClearAdvisorConversations() {
     return fetchAPI('/advisor/conversations', { method: 'DELETE' });
 }
 
+async function apiGenerateInsights() {
+    return fetchAPI('/advisor/insights', { method: 'POST' });
+}
+
 // ─── Financial Planner API ─────────────────
 
 async function apiGetPlan() {

@@ -15,6 +15,7 @@ from app.models import User, AdvisorConversation
 from app.schemas import AdvisorQuery, AdvisorResponse, AdvisorAction
 from app.dependencies import get_current_user
 from app.services import advisor_agent
+from app.services import insights_engine
 
 logger = logging.getLogger(__name__)
 
@@ -115,3 +116,21 @@ async def clear_conversations(
         await db.delete(c)
     await db.flush()
     return {"status": "cleared", "deleted": len(conversations)}
+
+
+@router.post("/insights")
+async def generate_insights(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Generate comprehensive AI-powered financial insights.
+    Gathers ALL financial data (transactions, budgets, goals, planner,
+    recurring, anomalies, trends, accounts) and produces a holistic
+    financial health report with actionable recommendations.
+    """
+    result = await insights_engine.generate_insights(
+        user_id=user.id,
+        db=db,
+    )
+    return result
