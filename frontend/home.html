@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Home — Financial Intelligence Engine</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0f172a">
+    <style>
+        /* ─── Mobile Home Layout ───────────────────── */
+        body.home-page { background: var(--bg-primary); margin: 0; padding: 0; overflow: hidden; }
+        body.home-page .sidebar { display: none !important; }
+        body.home-page .mobile-menu-toggle { display: none !important; }
+        body.home-page .sidebar-overlay { display: none !important; }
+        body.home-page .app-container { display: flex; flex-direction: column; }
+        body.home-page .main-content {
+            margin-left: 0 !important;
+            padding: 0 !important;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            height: 100dvh;
+            max-height: 100vh;
+            max-height: 100dvh;
+            overflow: hidden;
+        }
+
+        /* ─── Hub Hero Bar ─────────────────────────── */
+        .hub-bar {
+            flex-shrink: 0;
+            background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(139,92,246,0.08));
+            border-bottom: 1px solid var(--border);
+            padding: 0.6rem 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .hub-bar-avatar {
+            width: 38px; height: 38px;
+            border-radius: 50%;
+            background: rgba(59,130,246,0.2);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.3rem;
+            flex-shrink: 0;
+        }
+        .hub-bar-info { flex: 1; min-width: 0; }
+        .hub-bar-level {
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .hub-bar-xp-row {
+            display: flex; align-items: center; gap: 0.5rem;
+            margin-top: 0.15rem;
+        }
+        .hub-bar-xp-track {
+            flex: 1; height: 6px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .hub-bar-xp-fill {
+            height: 100%; border-radius: 3px;
+            background: linear-gradient(90deg, var(--accent), #8b5cf6);
+            transition: width 0.4s ease;
+        }
+        .hub-bar-xp-label {
+            font-size: 0.68rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .hub-bar-stats {
+            display: flex; gap: 0.65rem;
+            flex-shrink: 0;
+        }
+        .hub-bar-stat {
+            text-align: center;
+        }
+        .hub-bar-stat-val {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1;
+        }
+        .hub-bar-stat-lbl {
+            font-size: 0.58rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        /* ─── Quick Actions Row ───────────────────── */
+        .quick-chips {
+            flex-shrink: 0;
+            display: flex;
+            gap: 0.4rem;
+            padding: 0.5rem 0.75rem;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-primary);
+        }
+        .quick-chips::-webkit-scrollbar { display: none; }
+        .quick-chip {
+            flex-shrink: 0;
+            padding: 0.35rem 0.7rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .quick-chip:hover, .quick-chip:active {
+            border-color: var(--accent);
+            color: var(--text-primary);
+            background: rgba(59,130,246,0.08);
+        }
+
+        /* ─── Chat Area ───────────────────────────── */
+        .home-chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 0;
+        }
+        .home-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            -webkit-overflow-scrolling: touch;
+        }
+        .home-messages .chat-message {
+            display: flex;
+            gap: 0.5rem;
+            max-width: 92%;
+        }
+        .home-messages .chat-message.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+        .home-messages .chat-avatar {
+            width: 30px; height: 30px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1rem;
+            flex-shrink: 0;
+            background: var(--bg-tertiary);
+        }
+        .home-messages .chat-bubble {
+            padding: 0.6rem 0.8rem;
+            border-radius: 12px;
+            font-size: 0.84rem;
+            line-height: 1.5;
+        }
+        .home-messages .chat-message.assistant .chat-bubble {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+        .home-messages .chat-message.user .chat-bubble {
+            background: var(--accent);
+            color: #fff;
+        }
+        .home-messages .chat-bubble ul,
+        .home-messages .chat-bubble ol { margin-left: 1rem; }
+        .home-messages .chat-bubble strong { color: var(--text-primary); }
+        .home-messages .chat-bubble p { margin: 0.3rem 0; }
+
+        /* Agent tables in home */
+        .home-messages .agent-table-wrap {
+            overflow-x: auto;
+            margin: 0.4rem 0;
+            border-radius: 0.4rem;
+        }
+        .home-messages .agent-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+            white-space: nowrap;
+        }
+        .home-messages .agent-table th {
+            background: rgba(59,130,246,0.12);
+            color: var(--accent);
+            padding: 0.35rem 0.5rem;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid var(--border);
+        }
+        .home-messages .agent-table td {
+            padding: 0.3rem 0.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            color: var(--text-secondary);
+        }
+        .home-messages .agent-table tr:hover td {
+            background: rgba(255,255,255,0.02);
+        }
+        .home-messages .agent-table td strong {
+            color: var(--text-primary);
+        }
+
+        /* ─── Chat Input ──────────────────────────── */
+        .home-input-bar {
+            flex-shrink: 0;
+            display: flex;
+            gap: 0.4rem;
+            padding: 0.5rem 0.65rem;
+            border-top: 1px solid var(--border);
+            background: var(--bg-secondary);
+        }
+        .home-input-bar input {
+            flex: 1;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.88rem;
+            color: var(--text-primary);
+            outline: none;
+        }
+        .home-input-bar input:focus {
+            border-color: var(--accent);
+        }
+        .home-input-bar input::placeholder {
+            color: var(--text-muted);
+        }
+        .home-input-bar button {
+            flex-shrink: 0;
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            background: var(--accent);
+            border: none;
+            color: #fff;
+            font-size: 1.1rem;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s;
+        }
+        .home-input-bar button:hover { background: var(--accent-hover); }
+        .home-input-bar button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* ─── Bottom Tab Bar ──────────────────────── */
+        .bottom-tabs {
+            flex-shrink: 0;
+            display: flex;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            padding: 0.25rem 0 env(safe-area-inset-bottom, 0.15rem);
+        }
+        .bottom-tab {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.1rem;
+            padding: 0.4rem 0;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.62rem;
+            font-weight: 500;
+            transition: color 0.15s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .bottom-tab .tab-icon { font-size: 1.25rem; line-height: 1; }
+        .bottom-tab:hover, .bottom-tab.active {
+            color: var(--accent);
+        }
+        .bottom-tab.active .tab-icon {
+            filter: drop-shadow(0 0 6px rgba(59,130,246,0.5));
+        }
+
+        /* Typing */
+        .typing-indicator {
+            display: flex; gap: 4px; padding: 0.4rem 0;
+        }
+        .typing-indicator span {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            animation: typing 1.4s infinite;
+        }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-5px); opacity: 1; }
+        }
+
+        /* Actions banner */
+        .actions-banner {
+            margin-top: 0.5rem;
+            padding: 0.5rem 0.6rem;
+            background: rgba(16,185,129,0.1);
+            border: 1px solid rgba(16,185,129,0.3);
+            border-radius: 8px;
+            font-size: 0.78rem;
+        }
+        .actions-banner .action-header {
+            font-weight: 600; color: #10b981; margin-bottom: 0.25rem;
+        }
+        .actions-banner .action-item {
+            padding: 0.1rem 0; color: var(--text-secondary);
+        }
+        .actions-banner .action-item .tool-name {
+            color: var(--accent);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+        }
+
+        /* ─── Desktop: wider layout ──────────────── */
+        @media (min-width: 769px) {
+            body.home-page .main-content {
+                max-width: 520px;
+                margin: 0 auto !important;
+                border-left: 1px solid var(--border);
+                border-right: 1px solid var(--border);
+            }
+        }
+    </style>
+</head>
+<body class="home-page">
+    <div class="main-content">
+
+        <!-- Hub Stats Bar -->
+        <div class="hub-bar" id="hub-bar">
+            <div class="hub-bar-avatar" id="bar-avatar">🧑‍💼</div>
+            <div class="hub-bar-info">
+                <div class="hub-bar-level" id="bar-level">Level 1 · Beginner</div>
+                <div class="hub-bar-xp-row">
+                    <div class="hub-bar-xp-track">
+                        <div class="hub-bar-xp-fill" id="bar-xp-fill" style="width:0%"></div>
+                    </div>
+                    <span class="hub-bar-xp-label" id="bar-xp-label">0 XP</span>
+                </div>
+            </div>
+            <div class="hub-bar-stats">
+                <div class="hub-bar-stat">
+                    <div class="hub-bar-stat-val" id="bar-streak">🔥 0</div>
+                    <div class="hub-bar-stat-lbl">Streak</div>
+                </div>
+                <div class="hub-bar-stat">
+                    <div class="hub-bar-stat-val" id="bar-badges">🏅 0</div>
+                    <div class="hub-bar-stat-lbl">Badges</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Action Chips -->
+        <div class="quick-chips" id="quick-chips">
+            <button class="quick-chip" onclick="askQuick('Give me my monthly financial health review')">📈 Health Review</button>
+            <button class="quick-chip" onclick="askQuick('How are my budgets looking this month? Am I on track?')">💰 Budget Check</button>
+            <button class="quick-chip" onclick="askQuick('Predict my cash flow for the next 90 days')">🔮 Forecast</button>
+            <button class="quick-chip" onclick="askQuick('What are my top spending categories and how can I reduce them?')">📊 Top Spending</button>
+            <button class="quick-chip" onclick="askQuick('Am I on track with my savings goals?')">🎯 Goals Check</button>
+            <button class="quick-chip" onclick="askQuick('Help me set up my complete financial plan')">📋 Setup Plan</button>
+            <button class="quick-chip" onclick="askQuick('Get me AI budget recommendations based on my spending')">🧠 Smart Budgets</button>
+            <button class="quick-chip" onclick="askQuick('Am I spending faster than usual this month?')">⚡ Spending Pace</button>
+            <button class="quick-chip" onclick="askQuick('Analyze my recurring payments. Am I paying for anything I might not need?')">🔄 Recurring</button>
+            <button class="quick-chip" onclick="askQuick('What is my current net worth?')">🏦 Net Worth</button>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="home-chat">
+            <div class="home-messages" id="chat-messages">
+                <div class="chat-message assistant">
+                    <div class="chat-avatar">🤖</div>
+                    <div class="chat-bubble">
+                        Hey! 👋 I'm your <strong>AI Money Coach</strong>. Ask me anything about your finances — I can check your spending, budgets, goals, and even make changes for you.<br><br>
+                        Tap a chip above to get started, or just type a question!
+                    </div>
+                </div>
+            </div>
+
+            <form class="home-input-bar" id="chat-form" onsubmit="sendMessage(event)">
+                <input type="text" id="chat-input" placeholder="Ask me anything..." autocomplete="off" />
+                <button type="submit" id="btn-send" title="Send">➤</button>
+            </form>
+        </div>
+
+        <!-- Bottom Tab Bar -->
+        <nav class="bottom-tabs">
+            <a href="/home.html" class="bottom-tab active">
+                <span class="tab-icon">🏠</span>
+                Home
+            </a>
+            <a href="/dashboard.html" class="bottom-tab">
+                <span class="tab-icon">📊</span>
+                Dashboard
+            </a>
+            <a href="/flashcards.html" class="bottom-tab">
+                <span class="tab-icon">📚</span>
+                Learn
+            </a>
+            <a href="/hub.html" class="bottom-tab">
+                <span class="tab-icon">🏆</span>
+                Hub
+            </a>
+            <a href="#" class="bottom-tab" id="tab-more" onclick="toggleMoreMenu(event)">
+                <span class="tab-icon">☰</span>
+                More
+            </a>
+        </nav>
+
+        <!-- More Menu Overlay -->
+        <div id="more-menu" style="display:none;position:fixed;bottom:56px;left:0;right:0;z-index:300;background:var(--bg-secondary);border-top:1px solid var(--border);padding:0.75rem;max-height:60vh;overflow-y:auto;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+                <a href="/transactions.html" class="more-link">💳 Transactions</a>
+                <a href="/upload.html" class="more-link">📄 Upload Statement</a>
+                <a href="/planner.html" class="more-link">📋 Financial Planner</a>
+                <a href="/planning.html" class="more-link">🧮 Planning Suite</a>
+                <a href="/budget.html" class="more-link">💰 Budgets</a>
+                <a href="/goals.html" class="more-link">🎯 Savings Goals</a>
+                <a href="/review.html" class="more-link">📈 Monthly Review</a>
+                <a href="/insights.html" class="more-link">🧠 AI Insights</a>
+                <a href="/advisor.html" class="more-link">🤖 AI Advisor (Full)</a>
+            </div>
+            <button onclick="apiLogout()" class="more-link" style="width:100%;margin-top:0.5rem;color:var(--error);border-color:rgba(239,68,68,0.3);">🚪 Logout</button>
+        </div>
+    </div>
+
+    <style>
+        .more-link {
+            display: flex; align-items: center; gap: 0.4rem;
+            padding: 0.65rem 0.8rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 0.82rem;
+            text-decoration: none;
+            transition: all 0.15s;
+            cursor: pointer;
+        }
+        .more-link:hover {
+            border-color: var(--accent);
+            color: var(--text-primary);
+            background: rgba(59,130,246,0.08);
+        }
+    </style>
+
+    <script src="/js/api.js"></script>
+    <script>
+        let isLoading = false;
+        let conversationId = sessionStorage.getItem('advisor_conversation_id') || null;
+        let moreOpen = false;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!requireAuth()) return;
+            document.getElementById('chat-input').focus();
+            loadHubBar();
+            if (conversationId) restoreConversation(conversationId);
+        });
+
+        /* ─── Hub Bar ──────────────────────────────── */
+        async function loadHubBar() {
+            try {
+                const p = await apiGetGamificationProfile();
+                document.getElementById('bar-avatar').textContent = p.avatar_emoji || '🧑‍💼';
+                document.getElementById('bar-level').textContent = `Level ${p.level} · ${p.level_title || ''}`;
+                const pct = p.level_progress_pct || 0;
+                document.getElementById('bar-xp-fill').style.width = pct + '%';
+                document.getElementById('bar-xp-label').textContent = `${p.xp} XP`;
+                document.getElementById('bar-streak').textContent = `🔥 ${p.streak_days || 0}`;
+                const badgeCount = (p.achievements && p.achievements.length) || 0;
+                document.getElementById('bar-badges').textContent = `🏅 ${badgeCount}`;
+            } catch (e) { console.error('Hub bar load failed:', e); }
+        }
+
+        /* ─── More Menu ────────────────────────────── */
+        function toggleMoreMenu(e) {
+            e.preventDefault();
+            moreOpen = !moreOpen;
+            document.getElementById('more-menu').style.display = moreOpen ? 'block' : 'none';
+            document.getElementById('tab-more').classList.toggle('active', moreOpen);
+        }
+        // Close more menu on outside tap
+        document.addEventListener('click', (e) => {
+            if (moreOpen && !e.target.closest('#more-menu') && !e.target.closest('#tab-more')) {
+                moreOpen = false;
+                document.getElementById('more-menu').style.display = 'none';
+                document.getElementById('tab-more').classList.remove('active');
+            }
+        });
+
+        /* ─── Chat ─────────────────────────────────── */
+        function askQuick(q) {
+            document.getElementById('chat-input').value = q;
+            sendMessage(new Event('submit'));
+        }
+
+        async function sendMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('chat-input');
+            const question = input.value.trim();
+            if (!question || isLoading) return;
+
+            appendMessage('user', question);
+            input.value = '';
+            input.focus();
+
+            isLoading = true;
+            toggleSend(false);
+            const typingEl = showTyping();
+
+            try {
+                const data = await apiQueryAdvisor(question, conversationId);
+                removeEl(typingEl);
+
+                if (data.conversation_id) {
+                    conversationId = data.conversation_id;
+                    sessionStorage.setItem('advisor_conversation_id', data.conversation_id);
+                }
+
+                let html = formatResponse(data.response || data.advice || 'No response received.');
+                if (data.actions_taken && data.actions_taken.length > 0) {
+                    html += formatActions(data.actions_taken);
+                }
+                appendMessage('assistant', html);
+            } catch (err) {
+                removeEl(typingEl);
+                appendMessage('assistant', `⚠️ Error: ${err.message}`);
+            } finally {
+                isLoading = false;
+                toggleSend(true);
+            }
+        }
+
+        async function restoreConversation(convId) {
+            try {
+                const data = await apiGetConversation(convId);
+                if (!data || !data.messages || data.messages.length === 0) return;
+                const container = document.getElementById('chat-messages');
+                container.innerHTML = '';
+                for (const msg of data.messages) {
+                    if (msg.role === 'user') appendMessage('user', msg.content);
+                    else if (msg.role === 'assistant') appendMessage('assistant', formatResponse(msg.content));
+                }
+            } catch (e) {
+                conversationId = null;
+                sessionStorage.removeItem('advisor_conversation_id');
+            }
+        }
+
+        /* ─── Formatting ──────────────────────────── */
+        function formatResponse(text) {
+            // Markdown tables
+            text = text.replace(
+                /((?:\|[^\n]+\|\s*\n)(?:\|[\s:\-|]+\|\s*\n)((?:\|[^\n]+\|\s*\n?)*))/gm,
+                function(block) {
+                    const lines = block.trim().split('\n').filter(l => l.trim());
+                    if (lines.length < 2) return block;
+                    const headers = lines[0].split('|').filter(c => c.trim()).map(c => c.trim());
+                    const rows = lines.slice(2).map(l => l.split('|').filter(c => c.trim() !== '' || c.includes(' ')).map(c => c.trim()).filter(c => c));
+                    let h = '<div class="agent-table-wrap"><table class="agent-table"><thead><tr>';
+                    headers.forEach(c => { h += `<th>${c.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</th>`; });
+                    h += '</tr></thead><tbody>';
+                    rows.forEach(r => { h += '<tr>'; r.forEach(c => { h += `<td>${c.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</td>`; }); h += '</tr>'; });
+                    h += '</tbody></table></div>';
+                    return h;
+                }
+            );
+            let html = text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/^### (.*$)/gm, '<h4 style="margin:0.6rem 0 0.2rem;font-size:0.9rem;">$1</h4>')
+                .replace(/^## (.*$)/gm, '<h3 style="margin:0.6rem 0 0.2rem;font-size:0.95rem;">$1</h3>')
+                .replace(/^✅ (.*$)/gm, '<div style="color:#22c55e;margin:0.2rem 0;">✅ $1</div>')
+                .replace(/^[•\-\*] (.*$)/gm, '<li>$1</li>')
+                .replace(/^\d+\.\s(.*$)/gm, '<li>$1</li>')
+                .replace(/\n\n/g, '</p><p>')
+                .replace(/\n/g, '<br>');
+            html = html.replace(/(<li>.*?<\/li>(?:<br>)?)+/gs, m =>
+                '<ul style="margin:0.3rem 0 0.3rem 1rem;">' + m.replace(/<br>/g, '') + '</ul>'
+            );
+            return `<p>${html}</p>`;
+        }
+
+        function formatActions(actions) {
+            const labels = {
+                'create_budget':'💰 Created budget','update_budget':'💰 Updated budget','delete_budget':'🗑️ Deleted budget',
+                'create_goal':'🎯 Created goal','update_goal':'🎯 Updated goal','delete_goal':'🗑️ Deleted goal',
+                'update_planner_section':'📋 Updated planner','bulk_assign_planner_categories':'🏷️ Bulk-tagged',
+                'create_budgets_from_spending':'💰 Auto-created budgets','apply_smart_budgets_tool':'💰 Applied smart budgets',
+                'run_weekly_tune':'🔧 Budget tune-up','create_manual_transaction':'✏️ Added transaction',
+            };
+            let h = '<div class="actions-banner"><div class="action-header">✅ Actions Taken</div>';
+            for (const a of actions) {
+                const lbl = labels[a.tool] || a.tool;
+                const r = a.result || {};
+                let d = '';
+                if (r.category) d += ` — ${r.category}`;
+                if (r.name) d += ` — ${r.name}`;
+                if (r.amount_limit) d += ` ($${parseFloat(r.amount_limit).toFixed(0)})`;
+                if (r.budgets_created !== undefined) d += ` (${r.budgets_created} created)`;
+                if (r.updated !== undefined) d += ` (${r.updated} updated)`;
+                if (r.status === 'error') d = ` — ⚠️ ${r.message}`;
+                h += `<div class="action-item">${lbl}<span class="tool-name">${d}</span></div>`;
+            }
+            return h + '</div>';
+        }
+
+        /* ─── Helpers ─────────────────────────────── */
+        function appendMessage(role, content) {
+            const c = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.className = `chat-message ${role}`;
+            div.innerHTML = `<div class="chat-avatar">${role==='user'?'👤':'🤖'}</div><div class="chat-bubble">${content}</div>`;
+            c.appendChild(div);
+            c.scrollTop = c.scrollHeight;
+        }
+
+        function showTyping() {
+            const c = document.getElementById('chat-messages');
+            const d = document.createElement('div');
+            d.className = 'chat-message assistant';
+            d.id = 'typing-indicator';
+            d.innerHTML = `<div class="chat-avatar">🤖</div><div class="chat-bubble"><div class="typing-indicator"><span></span><span></span><span></span></div></div>`;
+            c.appendChild(d);
+            c.scrollTop = c.scrollHeight;
+            return d;
+        }
+
+        function removeEl(el) { if (el && el.parentNode) el.parentNode.removeChild(el); }
+
+        function toggleSend(on) {
+            const b = document.getElementById('btn-send');
+            b.disabled = !on;
+            b.textContent = on ? '➤' : '…';
+        }
+    </script>
+</body>
+</html>

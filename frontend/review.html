@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monthly Review — Financial Intelligence Engine</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+        /* Month selector bar */
+        .review-bar {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        .review-bar select {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 0.5rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        /* Health Score Ring */
+        .score-hero {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(99,102,241,0.08) 100%);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-bottom: 1.5rem;
+        }
+        .score-ring {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            flex-shrink: 0;
+        }
+        .score-ring canvas { width: 120px !important; height: 120px !important; }
+        .score-ring .score-value {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+        .score-ring .score-number {
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .score-ring .score-grade {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        .score-details { flex: 1; }
+        .score-details h2 { margin: 0 0 0.5rem; font-size: 1.3rem; }
+        .score-details p { color: var(--text-secondary); margin: 0; font-size: 0.9rem; }
+
+        /* KPI row */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .kpi-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1rem;
+            text-align: center;
+        }
+        .kpi-card .kpi-icon { font-size: 1.5rem; margin-bottom: 0.3rem; }
+        .kpi-card .kpi-value { font-size: 1.4rem; font-weight: 700; }
+        .kpi-card .kpi-label { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem; }
+        .kpi-card .kpi-change {
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
+            font-weight: 500;
+        }
+        .kpi-card .kpi-change.positive { color: #10b981; }
+        .kpi-card .kpi-change.negative { color: #ef4444; }
+
+        /* Alerts & actions */
+        .alerts-section { margin-bottom: 1.5rem; }
+        .alert-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.6rem;
+            padding: 0.6rem 0.8rem;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            font-size: 0.88rem;
+            line-height: 1.4;
+        }
+        .alert-item.danger { background: rgba(239,68,68,0.1); border-left: 3px solid #ef4444; }
+        .alert-item.warning { background: rgba(245,158,11,0.1); border-left: 3px solid #f59e0b; }
+        .alert-item.info { background: rgba(99,102,241,0.1); border-left: 3px solid var(--accent); }
+        .alert-item.success { background: rgba(16,185,129,0.1); border-left: 3px solid #10b981; }
+        .alert-icon { font-size: 1.1rem; flex-shrink: 0; }
+        .alert-text { color: var(--text-secondary); }
+
+        /* Two-column layout */
+        .review-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+        @media (max-width: 800px) { .review-grid { grid-template-columns: 1fr; } }
+
+        /* Budget burn table */
+        .burn-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        .burn-table th {
+            text-align: left;
+            padding: 0.5rem;
+            border-bottom: 2px solid var(--border);
+            font-weight: 600;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+        }
+        .burn-table td { padding: 0.5rem; border-bottom: 1px solid var(--border); }
+        .burn-bar {
+            height: 6px;
+            border-radius: 3px;
+            background: var(--bg-tertiary);
+            overflow: hidden;
+            min-width: 60px;
+        }
+        .burn-bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s; }
+        .status-badge {
+            display: inline-block;
+            padding: 0.15rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.72rem;
+            font-weight: 600;
+        }
+        .status-badge.on_track { background: rgba(16,185,129,0.15); color: #10b981; }
+        .status-badge.at_risk { background: rgba(245,158,11,0.15); color: #f59e0b; }
+        .status-badge.exceeded { background: rgba(239,68,68,0.15); color: #ef4444; }
+
+        /* Goal cards */
+        .goal-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.8rem;
+            margin-bottom: 0.6rem;
+        }
+        .goal-card .goal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+        .goal-card .goal-name { font-weight: 600; font-size: 0.9rem; }
+        .goal-card .goal-prob {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.15rem 0.5rem;
+            border-radius: 12px;
+        }
+        .goal-progress-bar {
+            height: 8px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 0.4rem;
+        }
+        .goal-progress-fill { height: 100%; border-radius: 4px; transition: width 0.5s; }
+        .goal-detail { font-size: 0.78rem; color: var(--text-muted); }
+
+        /* Velocity bars */
+        .velocity-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .velocity-item:last-child { border-bottom: none; }
+        .velocity-cat { width: 100px; font-size: 0.82rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .velocity-bar-wrap { flex: 1; }
+        .velocity-bar {
+            height: 8px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+        .velocity-bar-fill { height: 100%; border-radius: 4px; }
+        .velocity-marker {
+            position: absolute;
+            top: -3px;
+            width: 2px;
+            height: 14px;
+            background: var(--text-primary);
+            border-radius: 1px;
+        }
+        .velocity-pct { width: 55px; text-align: right; font-size: 0.82rem; font-weight: 600; }
+
+        /* Forecast chart */
+        .forecast-chart { max-height: 250px; }
+
+        /* Checklist */
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.88rem;
+        }
+        .checklist-item:last-child { border-bottom: none; }
+        .checklist-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+        .checklist-item.checked label { text-decoration: line-through; color: var(--text-muted); }
+        .checklist-tag {
+            font-size: 0.68rem;
+            padding: 0.1rem 0.4rem;
+            border-radius: 6px;
+            background: rgba(99,102,241,0.1);
+            color: var(--accent);
+            margin-left: auto;
+        }
+
+        /* Action items list */
+        .action-list { list-style: none; padding: 0; margin: 0; }
+        .action-list li {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.88rem;
+            color: var(--text-secondary);
+            display: flex;
+            gap: 0.5rem;
+            align-items: flex-start;
+        }
+        .action-list li:last-child { border-bottom: none; }
+        .action-list li::before { content: "→"; color: var(--accent); font-weight: 600; flex-shrink: 0; }
+
+        /* Loading state */
+        .loading-overlay {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 4rem 2rem;
+            color: var(--text-muted);
+        }
+        .loading-overlay .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 1rem;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="main-content">
+        <div class="page-header">
+            <h1>📈 Monthly Review & Predictions</h1>
+            <p>Proactive financial check-in with predictive analysis, burn rates, and actionable alerts</p>
+        </div>
+
+        <div id="alert-container"></div>
+
+        <!-- Month Selector -->
+        <div class="review-bar">
+            <label style="font-weight:600;">Review month:</label>
+            <select id="month-select" onchange="loadReview()"></select>
+            <button class="btn btn-primary" onclick="loadReview()" id="btn-refresh">Refresh</button>
+            <span id="load-status" style="font-size:0.8rem;color:var(--text-muted);"></span>
+        </div>
+
+        <!-- Main content container -->
+        <div id="review-content">
+            <div class="loading-overlay" id="loading">
+                <div class="spinner"></div>
+                <span>Analyzing your finances...</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/navbar.js"></script>
+    <script>
+        let scoreChart = null;
+        let forecastChart = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!requireAuth()) return;
+            populateMonthSelector();
+            loadReview();
+        });
+
+        function populateMonthSelector() {
+            const sel = document.getElementById('month-select');
+            const today = new Date();
+            for (let i = 0; i < 12; i++) {
+                const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+                const val = d.toISOString().slice(0, 7);
+                const label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                const opt = document.createElement('option');
+                opt.value = val;
+                opt.textContent = label;
+                if (i === 0) opt.selected = true;
+                sel.appendChild(opt);
+            }
+        }
+
+        async function loadReview() {
+            const month = document.getElementById('month-select').value;
+            const container = document.getElementById('review-content');
+            container.innerHTML = '<div class="loading-overlay" id="loading"><div class="spinner"></div><span>Analyzing your finances...</span></div>';
+
+            try {
+                // Load all data in parallel
+                const [review, velocity, forecast] = await Promise.all([
+                    apiMonthlyReview(month),
+                    apiSpendingVelocity(),
+                    apiCashFlowForecast(),
+                ]);
+
+                renderReview(review, velocity, forecast);
+                document.getElementById('load-status').textContent = `Updated ${new Date().toLocaleTimeString()}`;
+            } catch (err) {
+                container.innerHTML = `<div class="card" style="padding:2rem;text-align:center;color:var(--text-muted);">
+                    <p>⚠️ Failed to load review: ${err.message}</p>
+                    <button class="btn btn-primary" onclick="loadReview()" style="margin-top:1rem;">Retry</button>
+                </div>`;
+            }
+        }
+
+        function renderReview(review, velocity, forecast) {
+            const container = document.getElementById('review-content');
+            container.innerHTML = '';
+
+            // 1. Health Score Hero
+            container.innerHTML += buildScoreHero(review);
+
+            // 2. KPI Cards
+            container.innerHTML += buildKPIs(review);
+
+            // 3. Alerts
+            if (review.alerts && review.alerts.length > 0) {
+                container.innerHTML += buildAlerts(review.alerts);
+            }
+
+            // 4. Two-column: Budget Burn + Goal Predictions
+            container.innerHTML += `<div class="review-grid">
+                <div>${buildBudgetBurn(review.budget_summary)}</div>
+                <div>${buildGoalPredictions(review.goal_summary)}</div>
+            </div>`;
+
+            // 5. Two-column: Spending Velocity + Cash Flow Forecast
+            container.innerHTML += `<div class="review-grid">
+                <div>${buildVelocity(velocity)}</div>
+                <div>${buildForecast(forecast)}</div>
+            </div>`;
+
+            // 6. Two-column: Action Items + Checklist
+            container.innerHTML += `<div class="review-grid">
+                <div>${buildActionItems(review.action_items)}</div>
+                <div>${buildChecklist(review.checklist)}</div>
+            </div>`;
+
+            // Initialize charts after DOM render
+            setTimeout(() => {
+                renderScoreRing(review.health_score, review.grade);
+                renderForecastChart(forecast);
+            }, 50);
+        }
+
+        /* ── Health Score ── */
+        function buildScoreHero(r) {
+            const gradeDescriptions = {
+                A: "Excellent financial health — keep it up!",
+                B: "Good financial health with room to optimize.",
+                C: "Fair — some areas need attention.",
+                D: "Below average — several areas need improvement.",
+                F: "Needs urgent attention across multiple areas.",
+            };
+            return `<div class="score-hero">
+                <div class="score-ring">
+                    <canvas id="score-canvas" width="120" height="120"></canvas>
+                    <div class="score-value">
+                        <div class="score-number">${r.health_score}</div>
+                        <div class="score-grade">Grade ${r.grade}</div>
+                    </div>
+                </div>
+                <div class="score-details">
+                    <h2>Financial Health Score</h2>
+                    <p>${gradeDescriptions[r.grade] || ''}</p>
+                    <p style="margin-top:0.5rem;font-size:0.82rem;">
+                        <strong>${r.transaction_count}</strong> transactions · 
+                        <strong>${r.recurring_count}</strong> recurring items · 
+                        <strong>${r.anomaly_count}</strong> anomalies detected
+                    </p>
+                </div>
+            </div>`;
+        }
+
+        function renderScoreRing(score, grade) {
+            const canvas = document.getElementById('score-canvas');
+            if (!canvas) return;
+            if (scoreChart) scoreChart.destroy();
+            const color = score >= 85 ? '#10b981' : score >= 70 ? '#3b82f6' : score >= 55 ? '#f59e0b' : '#ef4444';
+            scoreChart = new Chart(canvas, {
+                type: 'doughnut',
+                data: {
+                    datasets: [{
+                        data: [score, 100 - score],
+                        backgroundColor: [color, 'rgba(255,255,255,0.05)'],
+                        borderWidth: 0,
+                    }],
+                },
+                options: {
+                    cutout: '78%',
+                    responsive: false,
+                    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                    animation: { animateRotate: true, duration: 1000 },
+                },
+            });
+        }
+
+        /* ── KPI Cards ── */
+        function buildKPIs(r) {
+            const fmt = n => `$${Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+            const changeBadge = (pct, invert = false) => {
+                if (pct === 0) return '';
+                const isGood = invert ? pct < 0 : pct > 0;
+                const cls = isGood ? 'positive' : 'negative';
+                const arrow = pct > 0 ? '↑' : '↓';
+                return `<div class="kpi-change ${cls}">${arrow} ${Math.abs(pct).toFixed(1)}% vs last month</div>`;
+            };
+
+            return `<div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-icon">💰</div>
+                    <div class="kpi-value">${fmt(r.income)}</div>
+                    <div class="kpi-label">Income</div>
+                    ${changeBadge(r.income_change_pct)}
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon">🛒</div>
+                    <div class="kpi-value">${fmt(r.expenses)}</div>
+                    <div class="kpi-label">Expenses</div>
+                    ${changeBadge(r.expense_change_pct, true)}
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon">${r.net_cash_flow >= 0 ? '📈' : '📉'}</div>
+                    <div class="kpi-value" style="color:${r.net_cash_flow >= 0 ? '#10b981' : '#ef4444'}">${r.net_cash_flow >= 0 ? '+' : '-'}${fmt(r.net_cash_flow)}</div>
+                    <div class="kpi-label">Net Cash Flow</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon">🏦</div>
+                    <div class="kpi-value" style="color:${r.savings_rate >= 20 ? '#10b981' : r.savings_rate >= 0 ? '#f59e0b' : '#ef4444'}">${r.savings_rate.toFixed(1)}%</div>
+                    <div class="kpi-label">Savings Rate</div>
+                    ${r.prev_savings_rate !== undefined ? `<div class="kpi-change ${r.savings_rate > r.prev_savings_rate ? 'positive' : 'negative'}">prev: ${r.prev_savings_rate.toFixed(1)}%</div>` : ''}
+                </div>
+            </div>`;
+        }
+
+        /* ── Alerts ── */
+        function buildAlerts(alerts) {
+            const icons = { danger: '🔴', warning: '🟡', info: '🔵', success: '🟢' };
+            let html = '<div class="alerts-section">';
+            for (const a of alerts) {
+                html += `<div class="alert-item ${a.type}">
+                    <span class="alert-icon">${icons[a.type] || '⚪'}</span>
+                    <span class="alert-text">${a.message}</span>
+                </div>`;
+            }
+            html += '</div>';
+            return html;
+        }
+
+        /* ── Budget Burn Rate ── */
+        function buildBudgetBurn(burn) {
+            let html = `<div class="card"><div class="card-header"><span class="card-title">🔥 Budget Burn Rate</span></div>`;
+            if (!burn || !burn.available) {
+                html += `<p style="padding:1rem;color:var(--text-muted);font-size:0.88rem;">No budgets set for this month. <a href="budget.html" style="color:var(--accent);">Create budgets →</a></p></div>`;
+                return html;
+            }
+
+            html += `<div style="padding:0.5rem 0.75rem;font-size:0.82rem;color:var(--text-muted);">
+                Day ${burn.days_elapsed} of ${burn.days_in_month} · ${burn.days_remaining} days remaining · 
+                Overall: <strong>${burn.budget_utilization}%</strong> used
+            </div>`;
+
+            html += `<div style="overflow-x:auto;"><table class="burn-table"><thead><tr>
+                <th>Category</th><th>Spent / Limit</th><th>Progress</th><th>Projected</th><th>Status</th>
+            </tr></thead><tbody>`;
+
+            for (const b of burn.budgets) {
+                const pct = Math.min(b.percentage_used, 100);
+                const barColor = b.status === 'exceeded' ? '#ef4444' : b.status === 'at_risk' ? '#f59e0b' : '#10b981';
+                html += `<tr>
+                    <td style="font-weight:500;">${b.category}</td>
+                    <td>$${b.actual_spent.toFixed(0)} / $${b.limit.toFixed(0)}</td>
+                    <td><div class="burn-bar"><div class="burn-bar-fill" style="width:${pct}%;background:${barColor};"></div></div></td>
+                    <td>$${b.projected_month_end.toFixed(0)}</td>
+                    <td><span class="status-badge ${b.status}">${b.status.replace('_', ' ')}</span></td>
+                </tr>`;
+            }
+            html += '</tbody></table></div></div>';
+            return html;
+        }
+
+        /* ── Goal Predictions ── */
+        function buildGoalPredictions(goals) {
+            let html = `<div class="card"><div class="card-header"><span class="card-title">🎯 Goal Predictions</span></div>`;
+            if (!goals || !goals.available) {
+                html += `<p style="padding:1rem;color:var(--text-muted);font-size:0.88rem;">No savings goals set. <a href="goals.html" style="color:var(--accent);">Create goals →</a></p></div>`;
+                return html;
+            }
+
+            html += `<div style="padding:0.5rem 0.75rem;font-size:0.82rem;color:var(--text-muted);">
+                Avg monthly savings: <strong>$${goals.avg_monthly_savings.toFixed(0)}</strong>
+            </div><div style="padding:0 0.75rem 0.75rem;">`;
+
+            for (const g of goals.goals) {
+                const progPct = Math.min(g.progress_percent, 100);
+                const probColor = g.probability >= 80 ? '#10b981' : g.probability >= 50 ? '#f59e0b' : '#ef4444';
+                const barColor = g.on_track ? '#10b981' : '#f59e0b';
+
+                html += `<div class="goal-card">
+                    <div class="goal-header">
+                        <span class="goal-name">${g.name}</span>
+                        <span class="goal-prob" style="background:${probColor}22;color:${probColor};">${g.probability}% likely</span>
+                    </div>
+                    <div class="goal-progress-bar"><div class="goal-progress-fill" style="width:${progPct}%;background:${barColor};"></div></div>
+                    <div class="goal-detail">
+                        $${g.current_amount.toFixed(0)} / $${g.target_amount.toFixed(0)} · 
+                        ${g.on_track ? '✅ On track' : '⚠️ Behind'} · 
+                        ${g.predicted_completion_date ? `Est. completion: ${g.predicted_completion_date}` : 'N/A'}
+                        ${g.months_until_deadline ? ` · ${g.months_until_deadline}mo deadline` : ''}
+                    </div>
+                    <div class="goal-detail" style="margin-top:0.3rem;">
+                        Need <strong>$${g.required_monthly_savings.toFixed(0)}/mo</strong> — currently saving $${g.avg_monthly_savings.toFixed(0)}/mo
+                    </div>
+                </div>`;
+            }
+            html += '</div></div>';
+            return html;
+        }
+
+        /* ── Spending Velocity ── */
+        function buildVelocity(v) {
+            let html = `<div class="card"><div class="card-header"><span class="card-title">⚡ Spending Velocity</span></div>`;
+            if (!v || !v.available) {
+                html += `<p style="padding:1rem;color:var(--text-muted);font-size:0.88rem;">Not enough history to compare yet.</p></div>`;
+                return html;
+            }
+
+            const statusColors = { on_track: '#10b981', under_pace: '#3b82f6', slightly_over: '#f59e0b', over_pace: '#ef4444' };
+            const statusLabels = { on_track: 'On Pace', under_pace: 'Under Pace', slightly_over: 'Slightly Over', over_pace: 'Over Pace' };
+            const overall = v.overall_status;
+
+            html += `<div style="padding:0.5rem 0.75rem;font-size:0.82rem;color:var(--text-muted);">
+                Day ${v.day_of_month} — spent <strong>$${v.current_spent.toFixed(0)}</strong> of ~$${v.avg_monthly_expenses.toFixed(0)} avg · 
+                <span style="color:${statusColors[overall] || '#fff'};font-weight:600;">${statusLabels[overall] || overall}</span>
+                (${v.pace_vs_average_percent.toFixed(0)}% of expected)
+            </div><div style="padding:0 0.75rem 0.75rem;">`;
+
+            for (const c of v.categories || []) {
+                const pct = Math.min(c.pace_percent, 200);
+                const barWidth = Math.min(pct / 2, 100);
+                const color = statusColors[c.status] || '#6366f1';
+                const expectedPct = 50; // 100% of expected = 50% bar width
+
+                html += `<div class="velocity-item">
+                    <div class="velocity-cat" title="${c.category}">${c.category}</div>
+                    <div class="velocity-bar-wrap">
+                        <div class="velocity-bar">
+                            <div class="velocity-bar-fill" style="width:${barWidth}%;background:${color};"></div>
+                            <div class="velocity-marker" style="left:${expectedPct}%;" title="Expected by now"></div>
+                        </div>
+                    </div>
+                    <div class="velocity-pct" style="color:${color};">${c.pace_percent.toFixed(0)}%</div>
+                </div>`;
+            }
+            html += '</div></div>';
+            return html;
+        }
+
+        /* ── Cash Flow Forecast ── */
+        function buildForecast(f) {
+            let html = `<div class="card"><div class="card-header"><span class="card-title">📊 Cash Flow Forecast</span></div>`;
+            if (!f || !f.available) {
+                html += `<p style="padding:1rem;color:var(--text-muted);font-size:0.88rem;">Not enough data for forecasting yet.</p></div>`;
+                return html;
+            }
+
+            const trend = f.spending_trend;
+            const trendIcon = trend === 'increasing' ? '📈 Spending trending up' : trend === 'decreasing' ? '📉 Spending trending down' : '➡️ Stable';
+
+            html += `<div style="padding:0.5rem 0.75rem;font-size:0.82rem;color:var(--text-muted);">
+                Avg: <strong>+$${f.avg_monthly_income.toFixed(0)}</strong> income / 
+                <strong>-$${f.avg_monthly_expenses.toFixed(0)}</strong> expenses · 
+                Net: <strong style="color:${f.avg_monthly_net >= 0 ? '#10b981' : '#ef4444'}">$${f.avg_monthly_net.toFixed(0)}/mo</strong> · 
+                ${trendIcon}
+            </div>
+            <div style="padding:0 0.75rem 0.75rem;">
+                <canvas id="forecast-canvas" class="forecast-chart"></canvas>
+            </div>`;
+
+            // Forecast table
+            html += `<div style="padding:0 0.75rem 0.75rem;">`;
+            for (const snap of f.forecasts || []) {
+                const netColor = snap.projected_net >= 0 ? '#10b981' : '#ef4444';
+                html += `<div style="display:flex;justify-content:space-between;padding:0.3rem 0;border-bottom:1px solid var(--border);font-size:0.82rem;">
+                    <span style="font-weight:500;">${snap.days}-day forecast</span>
+                    <span>+$${snap.projected_income.toFixed(0)} / -$${snap.projected_expenses.toFixed(0)} = <strong style="color:${netColor}">$${snap.projected_net.toFixed(0)}</strong></span>
+                </div>`;
+            }
+            html += '</div></div>';
+            return html;
+        }
+
+        function renderForecastChart(f) {
+            const canvas = document.getElementById('forecast-canvas');
+            if (!canvas || !f || !f.available || !f.monthly_history) return;
+            if (forecastChart) forecastChart.destroy();
+
+            const labels = f.monthly_history.map(m => m.month);
+            const incData = f.monthly_history.map(m => m.income);
+            const expData = f.monthly_history.map(m => m.expenses);
+            const netData = f.monthly_history.map(m => m.net);
+
+            forecastChart = new Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Income', data: incData, backgroundColor: 'rgba(16,185,129,0.6)', borderRadius: 4
+                        },
+                        { label: 'Expenses', data: expData, backgroundColor: 'rgba(239,68,68,0.6)', borderRadius: 4 },
+                        { label: 'Net', data: netData, type: 'line', borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.1)', fill: true, tension: 0.3, pointRadius: 4 },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#9ca3af', font: { size: 11 } } },
+                    },
+                    scales: {
+                        x: { ticks: { color: '#9ca3af' }, grid: { display: false } },
+                        y: { ticks: { color: '#9ca3af', callback: v => '$' + v.toLocaleString() }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    },
+                },
+            });
+        }
+
+        /* ── Action Items ── */
+        function buildActionItems(items) {
+            let html = `<div class="card"><div class="card-header"><span class="card-title">🎯 Action Items</span></div>
+            <div style="padding:0.75rem;"><ul class="action-list">`;
+            for (const item of (items || [])) {
+                html += `<li>${item}</li>`;
+            }
+            html += '</ul></div></div>';
+            return html;
+        }
+
+        /* ── Monthly Checklist ── */
+        function buildChecklist(items) {
+            let html = `<div class="card"><div class="card-header"><span class="card-title">✅ Monthly Finance Checklist</span></div>
+            <div style="padding:0.75rem;">`;
+            for (let i = 0; i < (items || []).length; i++) {
+                const item = items[i];
+                const savedKey = `checklist_${document.getElementById('month-select').value}_${i}`;
+                const checked = localStorage.getItem(savedKey) === '1';
+                html += `<div class="checklist-item ${checked ? 'checked' : ''}">
+                    <input type="checkbox" id="chk-${i}" ${checked ? 'checked' : ''} onchange="toggleCheck(${i}, this.checked)">
+                    <label for="chk-${i}">${item.item}</label>
+                    <span class="checklist-tag">${item.category}</span>
+                </div>`;
+            }
+            html += '</div></div>';
+            return html;
+        }
+
+        function toggleCheck(index, checked) {
+            const month = document.getElementById('month-select').value;
+            const key = `checklist_${month}_${index}`;
+            if (checked) {
+                localStorage.setItem(key, '1');
+            } else {
+                localStorage.removeItem(key);
+            }
+            // Update visual state
+            const item = document.querySelectorAll('.checklist-item')[index];
+            if (item) item.classList.toggle('checked', checked);
+        }
+    </script>
+</body>
+</html>

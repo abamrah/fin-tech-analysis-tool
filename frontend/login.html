@@ -39,7 +39,7 @@
     <script>
         // Redirect if already logged in
         if (isAuthenticated()) {
-            window.location.href = '/dashboard.html';
+            window.location.href = '/home.html';
         }
 
         document.getElementById('login-form').addEventListener('submit', async (e) => {
@@ -53,7 +53,7 @@
 
             try {
                 await apiLogin(email, password);
-                window.location.href = '/dashboard.html';
+                window.location.href = '/home.html';
             } catch (err) {
                 showAlert(document.getElementById('alert-container'), err.message);
             } finally {

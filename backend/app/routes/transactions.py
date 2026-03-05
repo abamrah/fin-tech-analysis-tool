@@ -14,7 +14,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models import User, Transaction, Account
-from app.schemas import TransactionOut, TransactionListResponse, TransactionSummary, TransactionUpdate
+from app.schemas import TransactionOut, TransactionListResponse, TransactionSummary, TransactionUpdate, ManualTransactionCreate
 from app.dependencies import get_current_user
 from app.services import analytics
 from app.services.categorization import get_planner_category
@@ -35,6 +35,7 @@ async def list_transactions(
     account_type: Optional[str] = None,
     direction: Optional[str] = None,
     merchant: Optional[str] = None,
+    institution: Optional[str] = None,
     recurring_only: bool = False,
     anomaly_only: bool = False,
     transfer_only: bool = False,
@@ -52,15 +53,40 @@ async def list_transactions(
     if date_to:
         filters.append(Transaction.date <= date_to)
     if category:
-        filters.append(Transaction.category == category)
+        cats = [c.strip() for c in category.split(',') if c.strip()]
+        if len(cats) == 1:
+            filters.append(Transaction.category == cats[0])
+        elif cats:
+            filters.append(Transaction.category.in_(cats))
     if planner_category:
-        filters.append(Transaction.planner_category == planner_category)
+        pcs = [p.strip() for p in planner_category.split(',') if p.strip()]
+        if len(pcs) == 1:
+            filters.append(Transaction.planner_category == pcs[0])
+        elif pcs:
+            filters.append(Transaction.planner_category.in_(pcs))
     if account_type:
-        filters.append(Transaction.account_type == account_type)
+        ats = [a.strip() for a in account_type.split(',') if a.strip()]
+        if len(ats) == 1:
+            filters.append(Transaction.account_type == ats[0])
+        elif ats:
+            filters.append(Transaction.account_type.in_(ats))
     if direction:
-        filters.append(Transaction.direction == direction)
+        dirs = [d.strip() for d in direction.split(',') if d.strip()]
+        if len(dirs) == 1:
+            filters.append(Transaction.direction == dirs[0])
+        elif dirs:
+            filters.append(Transaction.direction.in_(dirs))
     if merchant:
         filters.append(Transaction.merchant_clean.ilike(f"%{merchant}%"))
+    if institution:
+        insts = [i.strip() for i in institution.split(',') if i.strip()]
+        if len(insts) == 1:
+            filters.append(Transaction.account.has(Account.institution_name.ilike(f"%{insts[0]}%")))
+        elif insts:
+            from sqlalchemy import or_
+            filters.append(Transaction.account.has(
+                or_(*[Account.institution_name.ilike(f"%{inst}%") for inst in insts])
+            ))
     if recurring_only:
         filters.append(Transaction.recurring_flag == True)
     if anomaly_only:
@@ -117,6 +143,7 @@ async def get_transaction_summary(
     account_type: Optional[str] = None,
     direction: Optional[str] = None,
     merchant: Optional[str] = None,
+    institution: Optional[str] = None,
     recurring_only: bool = False,
     anomaly_only: bool = False,
     transfer_only: bool = False,
@@ -134,15 +161,40 @@ async def get_transaction_summary(
     if date_to:
         filters.append(Transaction.date <= date_to)
     if category:
-        filters.append(Transaction.category == category)
+        cats = [c.strip() for c in category.split(',') if c.strip()]
+        if len(cats) == 1:
+            filters.append(Transaction.category == cats[0])
+        elif cats:
+            filters.append(Transaction.category.in_(cats))
     if planner_category:
-        filters.append(Transaction.planner_category == planner_category)
+        pcs = [p.strip() for p in planner_category.split(',') if p.strip()]
+        if len(pcs) == 1:
+            filters.append(Transaction.planner_category == pcs[0])
+        elif pcs:
+            filters.append(Transaction.planner_category.in_(pcs))
     if account_type:
-        filters.append(Transaction.account_type == account_type)
+        ats = [a.strip() for a in account_type.split(',') if a.strip()]
+        if len(ats) == 1:
+            filters.append(Transaction.account_type == ats[0])
+        elif ats:
+            filters.append(Transaction.account_type.in_(ats))
     if direction:
-        filters.append(Transaction.direction == direction)
+        dirs = [d.strip() for d in direction.split(',') if d.strip()]
+        if len(dirs) == 1:
+            filters.append(Transaction.direction == dirs[0])
+        elif dirs:
+            filters.append(Transaction.direction.in_(dirs))
     if merchant:
         filters.append(Transaction.merchant_clean.ilike(f"%{merchant}%"))
+    if institution:
+        insts = [i.strip() for i in institution.split(',') if i.strip()]
+        if len(insts) == 1:
+            filters.append(Transaction.account.has(Account.institution_name.ilike(f"%{insts[0]}%")))
+        elif insts:
+            from sqlalchemy import or_
+            filters.append(Transaction.account.has(
+                or_(*[Account.institution_name.ilike(f"%{inst}%") for inst in insts])
+            ))
     if recurring_only:
         filters.append(Transaction.recurring_flag == True)
     if anomaly_only:
@@ -303,3 +355,41 @@ async def assign_planner_categories(
         count += 1
     await db.commit()
     return {"updated": count}
+
+
+@router.post("/manual", response_model=TransactionOut, status_code=201)
+async def create_manual_transaction(
+    body: ManualTransactionCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Create a manual transaction (not from a bank statement)."""
+    from app.services.categorization import get_planner_category as gpc
+
+    txn = Transaction(
+        user_id=user.id,
+        statement_id=None,
+        account_id=None,
+        date=body.date,
+        description_raw=body.description,
+        merchant_clean=body.description.strip()[:100],
+        amount=body.amount,
+        direction=body.direction,
+        account_type=body.account_type,
+        category=body.category,
+        planner_category=gpc(body.category),
+        classification_source="manual",
+    )
+    db.add(txn)
+    await db.flush()
+    await db.refresh(txn)
+
+    # Award XP for activity
+    try:
+        from app.services.gamification_engine import award_xp
+        await award_xp(str(user.id), "upload_statement", db, {"manual": True})
+    except Exception:
+        pass
+
+    await db.commit()
+    return TransactionOut.model_validate(txn)

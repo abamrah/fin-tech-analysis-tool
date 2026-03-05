@@ -16,6 +16,22 @@
 
         <div id="alert-container"></div>
 
+        <!-- AI Smart Budget Panel -->
+        <div class="card" id="smart-panel" style="margin-bottom:1.5rem;border-color:var(--accent);">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;">
+                <div>
+                    <h3 style="margin-bottom:0.25rem;">🧠 Smart Budget AI</h3>
+                    <p class="text-muted text-sm">AI analyzes your spending history and recommends optimal budgets using the 50/30/20 rule.</p>
+                </div>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                    <button class="btn btn-primary btn-sm" id="btn-ai-recommend" onclick="loadRecommendations()">⚡ Get Recommendations</button>
+                    <button class="btn btn-secondary btn-sm" id="btn-weekly-tune" onclick="runWeeklyTune()">🔄 Weekly Tune</button>
+                </div>
+            </div>
+            <!-- AI Results (hidden until loaded) -->
+            <div id="ai-results" class="hidden" style="margin-top:1rem;"></div>
+        </div>
+
         <!-- Month Selector + Add Button -->
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
             <div style="display:flex;align-items:center;gap:0.75rem;">
@@ -240,6 +256,178 @@
             } catch (err) {
                 showAlert(document.getElementById('alert-container'), err.message);
             }
+        }
+
+        /* ── Smart Budget AI ───────────────────── */
+
+        async function loadRecommendations() {
+            const btn = document.getElementById('btn-ai-recommend');
+            btn.disabled = true;
+            btn.textContent = '⏳ Analyzing…';
+            try {
+                const data = await apiGetSmartRecommendations();
+                renderRecommendations(data);
+            } catch(e) {
+                showAlert(document.getElementById('alert-container'), 'AI recommendation failed: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '⚡ Get Recommendations';
+            }
+        }
+
+        function renderRecommendations(data) {
+            const container = document.getElementById('ai-results');
+            container.classList.remove('hidden');
+
+            if (data.status !== 'ok') {
+                container.innerHTML = `<div class="text-muted" style="padding:0.5rem 0;">${data.message || 'Insufficient data.'}</div>`;
+                return;
+            }
+
+            const env = data.envelopes;
+            const align = data.alignment_score;
+
+            let html = `
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.75rem;margin-bottom:1rem;">
+                    <div class="hub-stat-card" style="padding:0.75rem;">
+                        <div class="text-sm text-muted">Monthly Income</div>
+                        <div style="font-size:1.1rem;font-weight:700;">$${data.avg_monthly_income.toLocaleString()}</div>
+                    </div>
+                    <div class="hub-stat-card" style="padding:0.75rem;">
+                        <div class="text-sm text-muted">Needs (50%)</div>
+                        <div style="font-size:1.1rem;font-weight:700;color:var(--accent);">$${env.needs_target.toLocaleString()}</div>
+                    </div>
+                    <div class="hub-stat-card" style="padding:0.75rem;">
+                        <div class="text-sm text-muted">Wants (30%)</div>
+                        <div style="font-size:1.1rem;font-weight:700;color:var(--warning);">$${env.wants_target.toLocaleString()}</div>
+                    </div>
+                    <div class="hub-stat-card" style="padding:0.75rem;">
+                        <div class="text-sm text-muted">Savings (20%)</div>
+                        <div style="font-size:1.1rem;font-weight:700;color:var(--success);">$${env.savings_target.toLocaleString()}</div>
+                    </div>
+                    <div class="hub-stat-card" style="padding:0.75rem;">
+                        <div class="text-sm text-muted">Alignment</div>
+                        <div style="font-size:1.1rem;font-weight:700;">${align.grade} (${align.score}/100)</div>
+                    </div>
+                </div>
+            `;
+
+            // Tips
+            if (data.tips && data.tips.length > 0) {
+                html += `<div style="background:var(--bg-primary);border-radius:8px;padding:0.75rem;margin-bottom:1rem;">`;
+                data.tips.forEach(t => { html += `<div class="text-sm" style="margin-bottom:0.25rem;">${t}</div>`; });
+                html += `</div>`;
+            }
+
+            // Recommendation table
+            html += `<div style="overflow-x:auto;"><table class="table" style="width:100%;font-size:0.85rem;">
+                <thead><tr>
+                    <th>Category</th><th>Type</th><th>Avg Spend</th><th>Recommended</th><th>Trend</th><th>Advice</th>
+                </tr></thead><tbody>`;
+            data.recommendations.forEach(r => {
+                const typeColor = r.type === 'need' ? 'var(--accent)' : r.type === 'want' ? 'var(--warning)' : 'var(--text-muted)';
+                const trendIcon = r.trend === 'rising' ? '📈' : r.trend === 'falling' ? '📉' : '➡️';
+                html += `<tr>
+                    <td style="font-weight:600;">${r.category} ${r.protected ? '🛡️' : ''}</td>
+                    <td style="color:${typeColor};text-transform:capitalize;">${r.type}</td>
+                    <td>$${r.historical_avg.toFixed(0)}</td>
+                    <td style="font-weight:700;">$${r.recommended_limit.toFixed(0)}</td>
+                    <td>${trendIcon} ${r.trend}</td>
+                    <td class="text-sm text-secondary">${r.advice}</td>
+                </tr>`;
+            });
+            html += `</tbody></table></div>`;
+
+            // Apply button
+            html += `
+                <div style="display:flex;justify-content:flex-end;gap:0.75rem;margin-top:1rem;">
+                    <div class="text-sm text-muted" style="align-self:center;">
+                        Projected savings: <strong style="color:var(--success);">$${data.savings_projected.toFixed(0)}/mo (${data.savings_rate_pct.toFixed(1)}%)</strong>
+                    </div>
+                    <button class="btn btn-primary" onclick="applyRecommendations()">✅ Apply All to This Month</button>
+                </div>`;
+
+            container.innerHTML = html;
+        }
+
+        async function applyRecommendations() {
+            const month = document.getElementById('budget-month').value;
+            try {
+                const result = await apiApplySmartBudgets(month);
+                if (result.status === 'applied') {
+                    showAlert(document.getElementById('alert-container'), `Applied ${result.budgets_applied} smart budgets!`, 'success');
+                    await loadBudgets();
+                    document.getElementById('ai-results').classList.add('hidden');
+                } else {
+                    showAlert(document.getElementById('alert-container'), result.message || 'Could not apply.');
+                }
+            } catch(e) {
+                showAlert(document.getElementById('alert-container'), e.message);
+            }
+        }
+
+        async function runWeeklyTune() {
+            const btn = document.getElementById('btn-weekly-tune');
+            btn.disabled = true;
+            btn.textContent = '⏳ Tuning…';
+            try {
+                const data = await apiWeeklyTune();
+                renderTuneResults(data);
+            } catch(e) {
+                showAlert(document.getElementById('alert-container'), 'Tune failed: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔄 Weekly Tune';
+            }
+        }
+
+        function renderTuneResults(data) {
+            const container = document.getElementById('ai-results');
+            container.classList.remove('hidden');
+
+            if (data.status !== 'ok') {
+                container.innerHTML = `<div class="text-muted" style="padding:0.5rem 0;">${data.message || 'Not available yet.'}</div>`;
+                return;
+            }
+
+            let html = `<h4 style="margin-bottom:0.5rem;">📊 Mid-Month Tune — Day ${data.day_of_month} (${data.pct_of_month}% through)</h4>`;
+
+            // Category pace table
+            html += `<div style="overflow-x:auto;"><table class="table" style="width:100%;font-size:0.85rem;">
+                <thead><tr><th>Category</th><th>Budget</th><th>Spent</th><th>% Used</th><th>Expected</th><th>Pace</th></tr></thead><tbody>`;
+            data.categories.forEach(c => {
+                const paceColor = c.pace === 'over_paced' ? 'var(--danger)' : c.pace === 'under_used' ? 'var(--success)' : 'var(--text-secondary)';
+                const paceLabel = c.pace === 'over_paced' ? '🔴 Over' : c.pace === 'under_used' ? '🟢 Under' : '🟡 On track';
+                html += `<tr>
+                    <td style="font-weight:600;">${c.category} ${c.is_need ? '🛡️' : ''}</td>
+                    <td>$${c.current_limit.toFixed(0)}</td>
+                    <td>$${c.actual_spent.toFixed(0)}</td>
+                    <td style="font-weight:600;">${c.pct_used}%</td>
+                    <td class="text-muted">${c.expected_pct}%</td>
+                    <td style="color:${paceColor};font-weight:600;">${paceLabel}</td>
+                </tr>`;
+            });
+            html += `</tbody></table></div>`;
+
+            // Rebalance actions
+            if (data.rebalance_actions && data.rebalance_actions.length > 0) {
+                html += `<div style="margin-top:0.75rem;background:var(--bg-primary);padding:0.75rem;border-radius:8px;">
+                    <div class="text-sm" style="font-weight:600;margin-bottom:0.5rem;">🔄 Auto-Rebalanced:</div>`;
+                data.rebalance_actions.forEach(r => {
+                    html += `<div class="text-sm">${r.category}: $${r.old_limit} → <strong>$${r.new_limit}</strong> (+$${r.boost} from surplus)</div>`;
+                });
+                html += `</div>`;
+            }
+
+            // Advice
+            if (data.advice && data.advice.length > 0) {
+                html += `<div style="margin-top:0.75rem;">`;
+                data.advice.forEach(a => { html += `<div class="text-sm">${a}</div>`; });
+                html += `</div>`;
+            }
+
+            container.innerHTML = html;
+            loadBudgets(); // Refresh budgets after tune
         }
     </script>
 </body>

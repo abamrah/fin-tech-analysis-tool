@@ -591,6 +591,36 @@ def extract_via_layout_regex(file_bytes: bytes) -> List[RawTransaction]:
 
                 # --- CIBC / Generic checking: Mon DD  Description  amount  balance ---
                 # Lines starting with "Mon DD" followed by description and amounts
+
+                # Detect Withdrawal/Deposit column positions from header
+                # CIBC checking statements have: Date | Description | Withdrawals ($) | Deposits ($) | Balance ($)
+                # The character position of the amount on each line tells us which column it's in.
+                _wd_col = None   # character position of "Withdrawal" header
+                _dep_col = None  # character position of "Deposit" header
+                for hline in text.split("\n"):
+                    hline_lower = hline.lower()
+                    w_match = re.search(r'withdrawal', hline_lower)
+                    d_match = re.search(r'deposit', hline_lower)
+                    b_match = re.search(r'balance', hline_lower)
+                    # Header line must have both withdrawal + deposit (or withdrawal + balance)
+                    if w_match and d_match and b_match:
+                        _wd_col = w_match.start()
+                        _dep_col = d_match.start()
+                        break
+
+                def _direction_from_col_pos(line_text: str, desc: str) -> str:
+                    """Determine direction using column position when available, else keyword hint."""
+                    if _wd_col is not None and _dep_col is not None:
+                        amt_matches = list(re.finditer(r"[\d,]+\.\d{2}", line_text))
+                        if len(amt_matches) >= 2:
+                            first_pos = amt_matches[0].start()
+                            midpoint = (_wd_col + _dep_col) / 2
+                            if first_pos >= midpoint:
+                                return "credit"   # amount is in deposit column
+                            else:
+                                return "debit"     # amount is in withdrawal column
+                    return _cibc_direction_hint(desc)
+
                 last_date = None
                 for line in text.split("\n"):
                     # Line with date prefix
@@ -611,7 +641,7 @@ def extract_via_layout_regex(file_bytes: bytes) -> List[RawTransaction]:
                         if len(all_amounts) >= 2:
                             # First amount is the transaction, last is balance
                             amt = all_amounts[0].replace("$", "")
-                            direction = _cibc_direction_hint(desc)
+                            direction = _direction_from_col_pos(line, desc)
                             transactions.append(RawTransaction(
                                 date_str=last_date,
                                 description=desc,
@@ -637,7 +667,7 @@ def extract_via_layout_regex(file_bytes: bytes) -> List[RawTransaction]:
                             all_amounts = re.findall(r"-?\$?[\d,]+\.\d{2}", line)
                             if len(all_amounts) >= 2:
                                 amt = all_amounts[0].replace("$", "")
-                                direction = _cibc_direction_hint(desc)
+                                direction = _direction_from_col_pos(line, desc)
                                 transactions.append(RawTransaction(
                                     date_str=last_date,
                                     description=desc,

@@ -35,6 +35,11 @@ class User(Base):
     goals = relationship("Goal", back_populates="user", cascade="all, delete-orphan")
     financial_plan = relationship("FinancialPlan", back_populates="user", uselist=False, cascade="all, delete-orphan")
     advisor_conversations = relationship("AdvisorConversation", back_populates="user", cascade="all, delete-orphan")
+    gamification_profile = relationship("GamificationProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    challenges = relationship("Challenge", back_populates="user", cascade="all, delete-orphan")
+    achievements = relationship("Achievement", back_populates="user", cascade="all, delete-orphan")
+    activity_logs = relationship("ActivityLog", back_populates="user", cascade="all, delete-orphan")
+    flashcard_progress = relationship("FlashcardProgress", back_populates="user", cascade="all, delete-orphan")
 
 
 class Account(Base):
@@ -81,7 +86,7 @@ class Transaction(Base):
 
     id = Column(UUID(as_uuid=False), primary_key=True, default=generate_uuid)
     user_id = Column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    statement_id = Column(UUID(as_uuid=False), ForeignKey("statements.id", ondelete="CASCADE"), nullable=False)
+    statement_id = Column(UUID(as_uuid=False), ForeignKey("statements.id", ondelete="CASCADE"), nullable=True)
     account_id = Column(UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
 
     # Core transaction fields
@@ -210,3 +215,160 @@ class FinancialPlan(Base):
 
     # Relationships
     user = relationship("User", back_populates="financial_plan")
+
+
+# ─── Gamification Models ─────────────────────────────────────────
+
+class GamificationProfile(Base):
+    """Tracks a user's gamification state: XP, level, streak."""
+    __tablename__ = "gamification_profiles"
+
+    id = Column(UUID(as_uuid=False), primary_key=True, default=generate_uuid)
+    user_id = Column(
+        UUID(as_uuid=False),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    xp = Column(Integer, default=0, nullable=False)
+    level = Column(Integer, default=1, nullable=False)
+    streak_days = Column(Integer, default=0, nullable=False)
+    streak_last_date = Column(Date, nullable=True)
+    total_challenges_completed = Column(Integer, default=0, nullable=False)
+    avatar_emoji = Column(String(10), default="🧑‍💼", nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    user = relationship("User", back_populates="gamification_profile")
+
+
+class Challenge(Base):
+    """Weekly/monthly financial challenges that earn XP on completion."""
+    __tablename__ = "challenges"
+
+    id = Column(UUID(as_uuid=False), primary_key=True, default=generate_uuid)
+    user_id = Column(
+        UUID(as_uuid=False),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    challenge_type = Column(String(20), nullable=False)  # "weekly" | "monthly"
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    category = Column(String(30), nullable=False)  # spending | saving | planning | learning
+    target_metric = Column(String(100), nullable=False)  # e.g. "dining_spend", "login_streak"
+    target_value = Column(Numeric(12, 2), nullable=False)
+    current_value = Column(Numeric(12, 2), default=0, nullable=False)
+    status = Column(String(20), default="active", nullable=False)  # active | completed | failed
+    xp_reward = Column(Integer, default=50, nullable=False)
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    user = relationship("User", back_populates="challenges")
+
+    __table_args__ = (
+        Index("ix_challenges_user_status", "user_id", "status"),
+    )
+
+
+class Achievement(Base):
+    """Unlockable badges awarded for milestones."""
+    __tablename__ = "achievements"
+
+    id = Column(UUID(as_uuid=False), primary_key=True, default=generate_uuid)
+    user_id = Column(
+        UUID(as_uuid=False),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    badge_key = Column(String(50), nullable=False)  # unique key per user
+    badge_name = Column(String(100), nullable=False)
+    badge_icon = Column(String(10), nullable=False)  # emoji
+    description = Column(Text, nullable=True)
+    unlocked_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    user = relationship("User", back_populates="achievements")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "badge_key", name="uq_achievement_user_badge"),
+    )
+
+
+class ActivityLog(Base):
+    """Audit trail of all XP-earning events."""
+    __tablename__ = "activity_logs"
+
+    id = Column(UUID(as_uuid=False), primary_key=True, default=generate_uuid)
+    user_id = Column(
+        UUID(as_uuid=False),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    action = Column(String(100), nullable=False)
+    xp_earned = Column(Integer, default=0, nullable=False)
+    detail = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    user = relationship("User", back_populates="activity_logs")
+
+
+# ─── Flashcard Models ────────────────────────────────────────────
+
+class FlashcardDeck(Base):
+    """Pre-built or AI-generated flashcard deck."""
+    __tablename__ = "flashcard_decks"
+
+    id = Column(UUID(as_uuid=False), primary_key=True, default=generate_uuid)
+    slug = Column(String(50), unique=True, nullable=False, index=True)
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    icon = Column(String(10), default="📚", nullable=False)
+    category = Column(String(50), nullable=False)  # banking | budgeting | investing | credit | taxes | saving
+    difficulty = Column(String(20), default="beginner", nullable=False)  # beginner | intermediate | advanced
+    card_count = Column(Integer, default=0, nullable=False)
+    is_system = Column(Boolean, default=True, nullable=False)  # system deck vs AI-personalized
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    cards = relationship("FlashcardCard", back_populates="deck", cascade="all, delete-orphan")
+
+
+class FlashcardCard(Base):
+    """Individual flashcard with question/answer."""
+    __tablename__ = "flashcard_cards"
+
+    id = Column(UUID(as_uuid=False), primary_key=True, default=generate_uuid)
+    deck_id = Column(UUID(as_uuid=False), ForeignKey("flashcard_decks.id", ondelete="CASCADE"), nullable=False, index=True)
+    front = Column(Text, nullable=False)  # Question
+    back = Column(Text, nullable=False)   # Answer
+    hint = Column(Text, nullable=True)    # Optional hint
+    order_index = Column(Integer, default=0, nullable=False)
+
+    deck = relationship("FlashcardDeck", back_populates="cards")
+    progress = relationship("FlashcardProgress", back_populates="card", cascade="all, delete-orphan")
+
+
+class FlashcardProgress(Base):
+    """Per-user spaced repetition state for each card."""
+    __tablename__ = "flashcard_progress"
+
+    id = Column(UUID(as_uuid=False), primary_key=True, default=generate_uuid)
+    user_id = Column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    card_id = Column(UUID(as_uuid=False), ForeignKey("flashcard_cards.id", ondelete="CASCADE"), nullable=False, index=True)
+    ease_factor = Column(Float, default=2.5, nullable=False)  # SM-2 ease factor
+    interval_days = Column(Integer, default=0, nullable=False)  # Days until next review
+    repetitions = Column(Integer, default=0, nullable=False)  # Successful reviews in a row
+    next_review = Column(Date, nullable=True)  # When to show again
+    last_reviewed = Column(DateTime, nullable=True)
+    quality_history = Column(JSON, default=list, nullable=False)  # list of quality scores [0-5]
+
+    user = relationship("User", back_populates="flashcard_progress")
+    card = relationship("FlashcardCard", back_populates="progress")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "card_id", name="uq_flashcard_progress_user_card"),
+    )

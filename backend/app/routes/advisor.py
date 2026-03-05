@@ -102,6 +102,62 @@ async def query_advisor(
     )
 
 
+@router.get("/conversations")
+async def list_conversations(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """List all advisor conversations for the current user (most recent first)."""
+    result = await db.execute(
+        select(AdvisorConversation)
+        .where(AdvisorConversation.user_id == user.id)
+        .order_by(AdvisorConversation.updated_at.desc())
+    )
+    conversations = result.scalars().all()
+    items = []
+    for c in conversations:
+        msgs = c.messages or []
+        # First user message as preview
+        preview = ""
+        for m in msgs:
+            if m.get("role") == "user":
+                preview = m["content"][:80]
+                break
+        items.append({
+            "id": c.id,
+            "preview": preview,
+            "message_count": len(msgs),
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+            "updated_at": c.updated_at.isoformat() if c.updated_at else None,
+        })
+    return items
+
+
+@router.get("/conversations/{conversation_id}")
+async def get_conversation(
+    conversation_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Load a specific conversation's messages."""
+    result = await db.execute(
+        select(AdvisorConversation).where(
+            AdvisorConversation.id == conversation_id,
+            AdvisorConversation.user_id == user.id,
+        )
+    )
+    conversation = result.scalar_one_or_none()
+    if not conversation:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return {
+        "id": conversation.id,
+        "messages": conversation.messages or [],
+        "created_at": conversation.created_at.isoformat() if conversation.created_at else None,
+        "updated_at": conversation.updated_at.isoformat() if conversation.updated_at else None,
+    }
+
+
 @router.delete("/conversations")
 async def clear_conversations(
     db: AsyncSession = Depends(get_db),

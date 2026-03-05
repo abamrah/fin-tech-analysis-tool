@@ -25,13 +25,14 @@
                         <div class="chat-bubble">
                             Hello! I'm your <strong>AI Financial Agent</strong>. I have full access to your financial data and can:
                             <ul style="margin:0.5rem 0 0 1.25rem;padding:0;">
+                                <li>� <strong>Set up your entire financial plan</strong> — just answer my questions</li>
                                 <li>📊 Analyze spending, income, budgets, and goals</li>
                                 <li>🔄 Detect recurring payments and anomalies</li>
                                 <li>✏️ Create and modify budgets & savings goals</li>
                                 <li>📋 Update your financial plan</li>
                                 <li>🏷️ Fix transaction categories in bulk</li>
                             </ul>
-                            <br>Try asking me to <em>analyze your spending</em>, <em>set up budgets</em>, or <em>create a savings plan</em>!
+                            <br>New here? Click <strong>"Set up my financial plan"</strong> in the sidebar and I'll walk you through everything! Or ask me anything about your finances.
                         </div>
                     </div>
                 </div>
@@ -45,9 +46,31 @@
 
             <!-- Quick Questions Sidebar -->
             <div class="quick-panel">
-                <div class="card">
+                <div class="card" id="history-card">
+                    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                        <span class="card-title">💬 Recent Chats</span>
+                        <button class="btn btn-secondary" onclick="clearAllChats()" style="padding:0.2rem 0.5rem;font-size:0.72rem;">Clear All</button>
+                    </div>
+                    <div id="conversation-list" class="conversation-list">
+                        <div style="color:var(--text-muted);font-size:0.8rem;padding:0.5rem 0;">No previous chats</div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top:0.75rem;">
                     <div class="card-header">
-                        <span class="card-title">📊 Analyze</span>
+                        <span class="card-title">� Setup</span>
+                    </div>
+                    <div class="quick-questions">
+                        <button class="quick-q action-q" style="background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.3);" onclick="askQuick('Help me set up my complete financial plan. Analyze my transactions, show me the numbers, and ask me about anything you need to know like savings, loans, and assets. I want everything filled in properly.')">📋 Set up my financial plan</button>
+                        <button class="quick-q action-q" onclick="askQuick('Set up monthly budgets for all my spending categories based on my actual transaction history. Use a 10% buffer above my average spending.')">💰 Set up my budgets</button>
+                        <button class="quick-q action-q" onclick="askQuick('Help me create savings goals. Look at my income, expenses and savings rate, then suggest realistic goals with target dates. Ask me what I want to save for.')">🎯 Set up savings goals</button>
+                        <button class="quick-q action-q" onclick="askQuick('Do a complete financial checkup: review my plan, budgets, goals, and spending. Tell me what needs updating and fix anything that is wrong or missing. Ask me questions if you need info.')">🔧 Full financial checkup</button>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top:0.75rem;">
+                    <div class="card-header">
+                        <span class="card-title">�📊 Analyze</span>
                     </div>
                     <div class="quick-questions">
                         <button class="quick-q" onclick="askQuick('What are my top spending categories and how can I reduce them?')">Top spending categories</button>
@@ -160,6 +183,38 @@
         .chat-bubble strong { color: var(--text-primary); }
         .chat-bubble p { margin: 0.4rem 0; }
 
+        /* Agent tables */
+        .agent-table-wrap {
+            overflow-x: auto;
+            margin: 0.5rem 0;
+            border-radius: 0.5rem;
+        }
+        .agent-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.82rem;
+            white-space: nowrap;
+        }
+        .agent-table th {
+            background: rgba(59, 130, 246, 0.15);
+            color: var(--accent);
+            padding: 0.5rem 0.75rem;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid var(--border);
+        }
+        .agent-table td {
+            padding: 0.4rem 0.75rem;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            color: var(--text-secondary);
+        }
+        .agent-table tr:hover td {
+            background: rgba(255,255,255,0.03);
+        }
+        .agent-table td strong {
+            color: var(--text-primary);
+        }
+
         .chat-input-form {
             display: flex;
             gap: 0.5rem;
@@ -240,18 +295,127 @@
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.78rem;
         }
+
+        /* Conversation history list */
+        .conversation-list {
+            max-height: 180px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+        .conv-item {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.45rem 0.6rem;
+            text-align: left;
+            color: var(--text-secondary);
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            line-height: 1.35;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .conv-item:hover {
+            border-color: var(--accent);
+            color: var(--text-primary);
+            background: rgba(99,102,241,0.08);
+        }
+        .conv-item.active {
+            border-color: var(--accent);
+            background: rgba(99,102,241,0.12);
+            color: var(--text-primary);
+        }
+        .conv-item .conv-time {
+            font-size: 0.68rem;
+            color: var(--text-muted);
+        }
     </style>
 
     <script src="/js/api.js"></script>
     <script src="/js/navbar.js"></script>
     <script>
         let isLoading = false;
-        let conversationId = null;  // Track current conversation for memory
+        let conversationId = sessionStorage.getItem('advisor_conversation_id') || null;
 
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             if (!requireAuth()) return;
             document.getElementById('chat-input').focus();
+
+            // Load conversation list in sidebar
+            await loadConversationList();
+
+            // Restore last conversation if we have one
+            if (conversationId) {
+                await restoreConversation(conversationId);
+            }
         });
+
+        async function loadConversationList() {
+            try {
+                const conversations = await apiListConversations();
+                const container = document.getElementById('conversation-list');
+                if (!conversations || conversations.length === 0) {
+                    container.innerHTML = '<div style="color:var(--text-muted);font-size:0.8rem;padding:0.5rem 0;">No previous chats</div>';
+                    return;
+                }
+                container.innerHTML = '';
+                for (const conv of conversations) {
+                    const btn = document.createElement('button');
+                    btn.className = 'conv-item' + (conv.id === conversationId ? ' active' : '');
+                    btn.dataset.id = conv.id;
+                    const preview = conv.preview || 'Empty conversation';
+                    const time = conv.updated_at ? new Date(conv.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+                    btn.innerHTML = `<div>${preview}</div><div class="conv-time">${time} · ${conv.message_count} msgs</div>`;
+                    btn.onclick = () => switchConversation(conv.id);
+                    container.appendChild(btn);
+                }
+            } catch (err) {
+                console.error('Failed to load conversation list:', err);
+            }
+        }
+
+        async function restoreConversation(convId) {
+            try {
+                const data = await apiGetConversation(convId);
+                if (!data || !data.messages || data.messages.length === 0) return;
+
+                const container = document.getElementById('chat-messages');
+                container.innerHTML = '';  // Clear welcome message
+
+                for (const msg of data.messages) {
+                    if (msg.role === 'user') {
+                        appendMessage('user', msg.content);
+                    } else if (msg.role === 'assistant') {
+                        appendMessage('assistant', formatAdvisorResponse(msg.content));
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to restore conversation:', err);
+                // Conversation may have been deleted — clear reference
+                conversationId = null;
+                sessionStorage.removeItem('advisor_conversation_id');
+            }
+        }
+
+        async function switchConversation(convId) {
+            if (isLoading || convId === conversationId) return;
+            conversationId = convId;
+            sessionStorage.setItem('advisor_conversation_id', convId);
+
+            // Reset chat to welcome then restore
+            const container = document.getElementById('chat-messages');
+            container.innerHTML = '';
+            await restoreConversation(convId);
+
+            // Update active state in sidebar
+            document.querySelectorAll('.conv-item').forEach(el => {
+                el.classList.toggle('active', el.dataset.id === convId);
+            });
+        }
 
         function askQuick(question) {
             document.getElementById('chat-input').value = question;
@@ -281,6 +445,7 @@
                 // Store conversation ID for memory
                 if (data.conversation_id) {
                     conversationId = data.conversation_id;
+                    sessionStorage.setItem('advisor_conversation_id', data.conversation_id);
                 }
 
                 let responseHtml = formatAdvisorResponse(data.response || data.advice || 'No response received.');
@@ -291,12 +456,28 @@
                 }
 
                 appendMessage('assistant', responseHtml);
+
+                // Refresh sidebar to show updated conversation
+                await loadConversationList();
             } catch (err) {
                 removeElement(typingEl);
                 appendMessage('assistant', `⚠️ Sorry, I encountered an error: ${err.message}. Please try again.`);
             } finally {
                 isLoading = false;
                 toggleSendButton(true);
+            }
+        }
+
+        async function clearAllChats() {
+            if (!confirm('Delete all chat history?')) return;
+            try {
+                await apiClearAdvisorConversations();
+                conversationId = null;
+                sessionStorage.removeItem('advisor_conversation_id');
+                startNewChat();
+                await loadConversationList();
+            } catch (err) {
+                console.error('Failed to clear conversations:', err);
             }
         }
 
@@ -377,6 +558,7 @@
 
         function startNewChat() {
             conversationId = null;
+            sessionStorage.removeItem('advisor_conversation_id');
             const container = document.getElementById('chat-messages');
             container.innerHTML = `
                 <div class="chat-message assistant">
@@ -387,16 +569,53 @@
                 </div>
             `;
             document.getElementById('chat-input').focus();
+            // Remove active state from sidebar
+            document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
         }
 
         function formatAdvisorResponse(text) {
-            // Convert markdown-like formatting to HTML
+            // ── Markdown Tables ──
+            // Match markdown table blocks: header row, separator row, data rows
+            text = text.replace(
+                /((?:\|[^\n]+\|\s*\n)(?:\|[\s:\-|]+\|\s*\n)((?:\|[^\n]+\|\s*\n?)*))/gm,
+                function(tableBlock) {
+                    const lines = tableBlock.trim().split('\n').filter(l => l.trim());
+                    if (lines.length < 2) return tableBlock;
+
+                    // Parse header
+                    const headerCells = lines[0].split('|').filter(c => c.trim()).map(c => c.trim());
+                    // Skip separator line (line 1)
+                    // Parse data rows
+                    const dataRows = lines.slice(2).map(line =>
+                        line.split('|').filter(c => c.trim() !== '' || c.includes(' ')).map(c => c.trim()).filter(c => c)
+                    );
+
+                    let tableHTML = '<div class="agent-table-wrap"><table class="agent-table"><thead><tr>';
+                    headerCells.forEach(h => {
+                        tableHTML += `<th>${h.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</th>`;
+                    });
+                    tableHTML += '</tr></thead><tbody>';
+                    dataRows.forEach(row => {
+                        tableHTML += '<tr>';
+                        row.forEach(cell => {
+                            tableHTML += `<td>${cell.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</td>`;
+                        });
+                        tableHTML += '</tr>';
+                    });
+                    tableHTML += '</tbody></table></div>';
+                    return tableHTML;
+                }
+            );
+
+            // Convert remaining markdown formatting to HTML
             let html = text
                 // Bold
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                 // Headers
                 .replace(/^### (.*$)/gm, '<h4 style="margin:0.75rem 0 0.25rem;font-size:0.95rem;">$1</h4>')
                 .replace(/^## (.*$)/gm, '<h3 style="margin:0.75rem 0 0.25rem;font-size:1rem;">$1</h3>')
+                // Checkmarks (✅)
+                .replace(/^✅ (.*$)/gm, '<div style="color:#22c55e;margin:0.25rem 0;">✅ $1</div>')
                 // Unordered lists
                 .replace(/^[•\-\*] (.*$)/gm, '<li>$1</li>')
                 // Numbered lists

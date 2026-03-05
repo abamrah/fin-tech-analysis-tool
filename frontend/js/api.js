@@ -202,6 +202,10 @@ async function apiGetMonthlySummary(params = {}) {
     return fetchAPI(`/dashboard/monthly-summary?${query}`);
 }
 
+async function apiGetAccountMinimums() {
+    return fetchAPI('/dashboard/account-minimums');
+}
+
 // ─── Budget API ────────────────────────────
 
 async function apiGetBudgets(month) {
@@ -257,6 +261,14 @@ async function apiQueryAdvisor(query, conversationId = null) {
 
 async function apiClearAdvisorConversations() {
     return fetchAPI('/advisor/conversations', { method: 'DELETE' });
+}
+
+async function apiListConversations() {
+    return fetchAPI('/advisor/conversations');
+}
+
+async function apiGetConversation(conversationId) {
+    return fetchAPI(`/advisor/conversations/${conversationId}`);
 }
 
 async function apiGenerateInsights() {
@@ -315,6 +327,151 @@ function formatPct(value) {
 }
 
 /** Show alert message */
+// ─── Predictive Analysis API ───────────────────
+
+async function apiCashFlowForecast() {
+    return fetchAPI('/predictive/cash-flow-forecast');
+}
+
+async function apiBudgetBurnRate(month = null) {
+    const params = month ? `?month=${month}` : '';
+    return fetchAPI(`/predictive/budget-burn-rate${params}`);
+}
+
+async function apiGoalPredictions() {
+    return fetchAPI('/predictive/goal-predictions');
+}
+
+async function apiSpendingVelocity() {
+    return fetchAPI('/predictive/spending-velocity');
+}
+
+async function apiMonthlyReview(month = null) {
+    const params = month ? `?month=${month}` : '';
+    return fetchAPI(`/predictive/monthly-review${params}`);
+}
+
+
+// ─── Smart Budget API ──────────────────────────
+
+async function apiGetSmartRecommendations() {
+    return fetchAPI('/budget/smart/recommendations');
+}
+
+async function apiApplySmartBudgets(month = null) {
+    const params = month ? `?month=${month}` : '';
+    return fetchAPI(`/budget/smart/apply${params}`, { method: 'POST' });
+}
+
+async function apiWeeklyTune() {
+    return fetchAPI('/budget/smart/weekly-tune', { method: 'POST' });
+}
+
+
+// ─── Manual Transactions API ───────────────────
+
+async function apiCreateManualTransaction(data) {
+    return fetchAPI('/transactions/manual', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+}
+
+
+// ─── Planning Suite API ───────────────────────────
+
+async function apiGetScenarioDefaults() {
+    return fetchAPI('/planning/scenario/defaults');
+}
+
+async function apiRunScenario(body) {
+    return fetchAPI('/planning/scenario', {
+        method: 'POST',
+        body: JSON.stringify(body),
+    });
+}
+
+async function apiDebtPayoff(body) {
+    return fetchAPI('/planning/debt-payoff', {
+        method: 'POST',
+        body: JSON.stringify(body),
+    });
+}
+
+async function apiDebtCompare(body) {
+    return fetchAPI('/planning/debt-compare', {
+        method: 'POST',
+        body: JSON.stringify(body),
+    });
+}
+
+async function apiCalcPayment(body) {
+    return fetchAPI('/planning/calc-payment', {
+        method: 'POST',
+        body: JSON.stringify(body),
+    });
+}
+
+async function apiRetirementProjection(body) {
+    return fetchAPI('/planning/retirement', {
+        method: 'POST',
+        body: JSON.stringify(body),
+    });
+}
+
+
+// ─── Flashcards API ───────────────────────────
+
+async function apiGetFlashcardDecks() {
+    return fetchAPI('/flashcards/decks');
+}
+
+async function apiGetDeckCards(deckSlug) {
+    return fetchAPI(`/flashcards/decks/${deckSlug}`);
+}
+
+async function apiGetReviewSession(deckSlug, limit = 10) {
+    return fetchAPI(`/flashcards/review/${deckSlug}?limit=${limit}`);
+}
+
+async function apiSubmitCardReview(cardId, quality) {
+    return fetchAPI(`/flashcards/review/${cardId}/answer?quality=${quality}`, { method: 'POST' });
+}
+
+async function apiGetFlashcardStats() {
+    return fetchAPI('/flashcards/stats');
+}
+
+
+// ─── Gamification API ──────────────────────────
+
+async function apiGetGamificationProfile() {
+    return fetchAPI('/gamification/profile');
+}
+
+async function apiRefreshChallenges() {
+    return fetchAPI('/gamification/challenges/refresh', { method: 'POST' });
+}
+
+async function apiGetAchievements() {
+    return fetchAPI('/gamification/achievements');
+}
+
+async function apiGetActivityFeed(limit = 20) {
+    return fetchAPI(`/gamification/activity?limit=${limit}`);
+}
+
+async function apiAwardXP(action) {
+    return fetchAPI(`/gamification/award?action=${encodeURIComponent(action)}`, { method: 'POST' });
+}
+
+async function apiUpdateAvatar(emoji) {
+    return fetchAPI(`/gamification/avatar?emoji=${encodeURIComponent(emoji)}`, { method: 'PUT' });
+}
+
+
+// ─── Utility Functions ─────────────────────────
+
 function showAlert(container, message, type = 'danger') {
     const icons = { danger: '⚠️', success: '✅', warning: '⚡', info: 'ℹ️' };
     const el = document.createElement('div');

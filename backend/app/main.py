@@ -101,16 +101,21 @@ async def health_check():
 
 # ─── API Routes ──────────────────────────────────────────────────
 
-from app.routes import auth, upload, transactions, dashboard, budget, goals, advisor, planner
+from app.routes import auth, upload, transactions, dashboard, budget, goals, advisor, planner, predictive, gamification, smart_budget, flashcards, planning_suite
 
 app.include_router(auth.router, prefix="/api")
 app.include_router(upload.router, prefix="/api")
 app.include_router(transactions.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(budget.router, prefix="/api")
+app.include_router(smart_budget.router, prefix="/api")
 app.include_router(goals.router, prefix="/api")
 app.include_router(advisor.router, prefix="/api")
 app.include_router(planner.router, prefix="/api")
+app.include_router(predictive.router, prefix="/api")
+app.include_router(gamification.router, prefix="/api")
+app.include_router(flashcards.router, prefix="/api")
+app.include_router(planning_suite.router, prefix="/api")
 
 
 # ─── Static Frontend ────────────────────────────────────────────

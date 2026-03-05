@@ -7,13 +7,53 @@
     <link rel="stylesheet" href="/css/styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+        /* Interactive hover styles */
+        .kpi-card.clickable { cursor: pointer; transition: all 0.2s ease; position: relative; }
+        .kpi-card.clickable:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 8px 20px rgba(59,130,246,0.15); }
+        .kpi-card.clickable::after { content: '→'; position: absolute; top: 0.75rem; right: 0.75rem; color: var(--text-muted); font-size: 0.8rem; opacity: 0; transition: opacity 0.2s; }
+        .kpi-card.clickable:hover::after { opacity: 1; }
+
+        .merchant-row-link { cursor: pointer; transition: background 0.15s; }
+        .merchant-row-link:hover { background: rgba(148,163,184,0.06) !important; }
+
+        .recurring-item { cursor: pointer; transition: background 0.15s; padding: 0.75rem 0.5rem !important; margin: 0 -0.5rem; border-radius: 6px; }
+        .recurring-item:hover { background: rgba(148,163,184,0.06); }
+
+        .anomaly-item { cursor: pointer; transition: all 0.15s; }
+        .anomaly-item:hover { transform: translateX(3px); border-left: 3px solid var(--warning); }
+
+        .chart-card .click-hint { font-size: 0.7rem; color: var(--text-muted); opacity: 0; transition: opacity 0.2s; }
+        .chart-card:hover .click-hint { opacity: 1; }
+
+        /* Account minimums styles */
+        .acct-min-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-top: 0.5rem; }
+        .acct-min-card {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 1.25rem; cursor: pointer; transition: all 0.2s;
+        }
+        .acct-min-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59,130,246,0.1); }
+        .acct-min-card .acct-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; }
+        .acct-min-card .acct-name { font-weight: 600; font-size: 0.95rem; color: var(--text-primary); }
+        .acct-min-card .acct-type { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 600; }
+        .acct-type-checking { background: rgba(34,197,94,0.15); color: #22c55e; }
+        .acct-type-credit { background: rgba(139,92,246,0.15); color: #a78bfa; }
+        .acct-min-card .acct-amount { font-size: 1.5rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; margin-bottom: 0.5rem; }
+        .acct-min-card .acct-items { font-size: 0.78rem; color: var(--text-muted); }
+        .acct-min-card .acct-item-row { display: flex; justify-content: space-between; padding: 0.25rem 0; border-bottom: 1px solid rgba(148,163,184,0.08); }
+        .acct-min-card .acct-item-row:last-child { border-bottom: none; }
+        .acct-min-total { background: linear-gradient(135deg, rgba(59,130,246,0.1), rgba(139,92,246,0.1)); border-color: rgba(59,130,246,0.3); }
+        .acct-min-total .acct-amount { color: var(--accent); }
+        .drill-hint { font-size: 0.65rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 0.25rem; }
+        .drill-hint::before { content: '🔗'; }
+    </style>
 </head>
 <body>
     <div class="main-content">
         <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;">
             <div>
                 <h1>📊 Dashboard</h1>
-                <p>Your financial overview at a glance</p>
+                <p>Your financial overview at a glance <span class="drill-hint">Click any item to drill down</span></p>
             </div>
             <!-- Period Filter -->
             <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
@@ -39,23 +79,23 @@
 
         <!-- KPI Cards -->
         <div class="kpi-grid" id="kpi-grid">
-            <div class="kpi-card">
+            <div class="kpi-card clickable" onclick="drillDown({direction:'in'})" title="View all income transactions">
                 <span class="kpi-label">Total Income</span>
                 <span class="kpi-value text-success" id="kpi-income">$0.00</span>
             </div>
-            <div class="kpi-card">
+            <div class="kpi-card clickable" onclick="drillDown({direction:'out'})" title="View all expense transactions">
                 <span class="kpi-label">Total Expenses</span>
                 <span class="kpi-value text-danger" id="kpi-expenses">$0.00</span>
             </div>
-            <div class="kpi-card">
+            <div class="kpi-card clickable" onclick="drillDown({})" title="View all transactions">
                 <span class="kpi-label">Net Cash Flow</span>
                 <span class="kpi-value" id="kpi-netflow">$0.00</span>
             </div>
-            <div class="kpi-card">
+            <div class="kpi-card" title="Savings rate percentage">
                 <span class="kpi-label">Savings Rate</span>
                 <span class="kpi-value text-accent" id="kpi-savings">0.0%</span>
             </div>
-            <div class="kpi-card">
+            <div class="kpi-card clickable" onclick="drillDown({flags:'transfer'})" title="View transfer transactions">
                 <span class="kpi-label">Inter-Account Transfers</span>
                 <span class="kpi-value text-muted" id="kpi-transfers">$0.00</span>
                 <span class="text-xs text-muted" style="margin-top:0.25rem;">excluded from cash flow</span>
@@ -74,16 +114,18 @@
         <!-- Charts Row -->
         <div class="chart-grid">
             <div class="chart-card">
-                <div class="card-header">
+                <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
                     <span class="card-title">Monthly Income vs Expenses</span>
+                    <span class="click-hint">Click a bar to drill down</span>
                 </div>
                 <div style="height:280px;">
                     <canvas id="chart-monthly-trend"></canvas>
                 </div>
             </div>
             <div class="chart-card">
-                <div class="card-header">
+                <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
                     <span class="card-title">Spending by Category</span>
+                    <span class="click-hint">Click a slice to drill down</span>
                 </div>
                 <div style="height:280px;">
                     <canvas id="chart-categories"></canvas>
@@ -93,8 +135,9 @@
 
         <!-- Top Merchants -->
         <div class="card mb-3">
-            <div class="card-header">
+            <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
                 <span class="card-title">Top Merchants</span>
+                <span class="text-xs text-muted">Click a merchant to view transactions</span>
             </div>
             <div class="table-container">
                 <table>
@@ -118,23 +161,34 @@
         <div class="chart-grid">
             <!-- Recurring Payments -->
             <div class="card">
-                <div class="card-header">
+                <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
                     <span class="card-title">🔄 Recurring Payments</span>
+                    <span class="text-xs text-muted">Click to view transactions</span>
                 </div>
-                <div id="recurring-list">
+                <div id="recurring-list" style="padding:0 0.5rem;">
                     <div class="text-center text-muted" style="padding:2rem;">Loading...</div>
                 </div>
             </div>
 
             <!-- Anomaly Alerts -->
             <div class="card">
-                <div class="card-header">
+                <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
                     <span class="card-title">⚠️ Anomaly Alerts</span>
+                    <span class="text-xs text-muted">Click to view transaction</span>
                 </div>
                 <div id="anomalies-list">
                     <div class="text-center text-muted" style="padding:2rem;">Loading...</div>
                 </div>
             </div>
+        </div>
+
+        <!-- Account Minimums -->
+        <div class="card mb-3" id="acct-min-section" style="display:none;">
+            <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                <span class="card-title">🏦 Minimum Account Balances (from Recurring Payments)</span>
+                <span class="text-xs text-muted">Click an account for breakdown</span>
+            </div>
+            <div class="acct-min-grid" id="acct-min-grid" style="padding:1rem;"></div>
         </div>
 
         <!-- Empty State -->
@@ -154,11 +208,12 @@
     <script>
         let monthlyChart = null;
         let categoryChart = null;
+        let _monthlyData = [];
+        let _categoryData = [];
 
         document.addEventListener('DOMContentLoaded', async () => {
             if (!requireAuth()) return;
 
-            // Show/hide custom date range
             document.getElementById('period-select').addEventListener('change', (e) => {
                 document.getElementById('custom-range').style.display =
                     e.target.value === 'custom' ? 'flex' : 'none';
@@ -168,6 +223,20 @@
 
             await loadDashboard();
         });
+
+        /* ─── Navigation helper: build URL and go to transactions page ─── */
+        function drillDown(filters) {
+            const dateParams = getDateParams();
+            const params = new URLSearchParams();
+            if (dateParams.date_from) params.set('date_from', dateParams.date_from);
+            if (dateParams.date_to) params.set('date_to', dateParams.date_to);
+            for (const [key, val] of Object.entries(filters)) {
+                if (val !== undefined && val !== null && val !== '') {
+                    params.set(key, val);
+                }
+            }
+            window.location.href = `/transactions.html?${params.toString()}`;
+        }
 
         function getDateParams() {
             const period = document.getElementById('period-select').value;
@@ -217,17 +286,16 @@
             try {
                 const dateParams = getDateParams();
 
-                // Fetch all data in parallel — pass date params to every endpoint
-                const [overview, categories, merchants, recurring, anomalies, monthly] = await Promise.all([
+                const [overview, categories, merchants, recurring, anomalies, monthly, accountMins] = await Promise.all([
                     apiGetOverview(dateParams),
                     apiGetCategories(dateParams),
                     apiGetMerchants(dateParams),
                     apiGetRecurring(dateParams).catch(() => []),
                     apiGetAnomalies(dateParams).catch(() => []),
                     apiGetMonthlySummary({ months: 12, ...dateParams }).catch(() => []),
+                    apiGetAccountMinimums().catch(() => ({ accounts: [] })),
                 ]);
 
-                // Check if there's any data
                 if (overview.transaction_count === 0) {
                     document.getElementById('empty-state').classList.remove('hidden');
                     document.getElementById('kpi-grid').style.opacity = '0.3';
@@ -236,7 +304,6 @@
                 document.getElementById('empty-state').classList.add('hidden');
                 document.getElementById('kpi-grid').style.opacity = '1';
 
-                // KPIs
                 document.getElementById('kpi-income').textContent = formatCurrency(overview.total_income);
                 document.getElementById('kpi-expenses').textContent = formatCurrency(overview.total_expenses);
 
@@ -245,28 +312,29 @@
                 netEl.className = `kpi-value ${parseFloat(overview.net_cash_flow) >= 0 ? 'text-success' : 'text-danger'}`;
 
                 document.getElementById('kpi-savings').textContent = formatPct(overview.savings_rate);
+                document.getElementById('kpi-transfers').textContent = formatCurrency(overview.transfer_total || 0);
 
-                const transferTotal = parseFloat(overview.transfer_total || 0);
-                document.getElementById('kpi-transfers').textContent = formatCurrency(transferTotal);
+                _monthlyData = monthly || [];
+                _categoryData = categories || [];
 
-                // Render each section independently — one failure shouldn't block others
                 try { renderMonthlyTrend(monthly); } catch(e) { console.error('Monthly chart error:', e); }
                 try { renderCategoryPie(categories); } catch(e) { console.error('Category chart error:', e); }
                 try { renderMerchants(merchants); } catch(e) { console.error('Merchants error:', e); }
                 try { renderRecurring(recurring); } catch(e) { console.error('Recurring error:', e); }
                 try { renderAnomalies(anomalies); } catch(e) { console.error('Anomalies error:', e); }
+                try { renderAccountMinimums(accountMins); } catch(e) { console.error('Account minimums error:', e); }
 
             } catch (err) {
                 showAlert(document.getElementById('alert-container'), err.message);
             }
         }
 
+        /* ─── Monthly Trend Chart (clickable bars) ─── */
         function renderMonthlyTrend(monthly) {
             if (monthlyChart) { monthlyChart.destroy(); monthlyChart = null; }
             const canvas = document.getElementById('chart-monthly-trend');
             if (!canvas) return;
 
-            // Remove any previous "no data" overlay
             const existingMsg = canvas.parentElement.querySelector('.no-data-msg');
             if (existingMsg) existingMsg.remove();
 
@@ -289,27 +357,33 @@
             monthlyChart = new Chart(canvas, {
                 type: 'bar',
                 data: {
-                    labels: labels,
+                    labels,
                     datasets: [
-                        {
-                            label: 'Income',
-                            data: incomeData,
-                            backgroundColor: '#22c55e',
-                            borderRadius: 4,
-                        },
-                        {
-                            label: 'Expenses',
-                            data: expenseData,
-                            backgroundColor: '#ef4444',
-                            borderRadius: 4,
-                        }
+                        { label: 'Income', data: incomeData, backgroundColor: '#22c55e', borderRadius: 4 },
+                        { label: 'Expenses', data: expenseData, backgroundColor: '#ef4444', borderRadius: 4 },
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    onClick: (evt, elements) => {
+                        if (elements.length > 0) {
+                            const idx = elements[0].index;
+                            const dsIdx = elements[0].datasetIndex;
+                            const month = _monthlyData[idx].month;
+                            const [y, m] = month.split('-');
+                            const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate();
+                            const direction = dsIdx === 0 ? 'in' : 'out';
+                            drillDown({
+                                date_from: `${month}-01`,
+                                date_to: `${month}-${String(lastDay).padStart(2, '0')}`,
+                                direction,
+                            });
+                        }
+                    },
                     plugins: {
                         legend: { position: 'top', labels: { color: '#94a3b8', font: { size: 11 } } },
+                        tooltip: { callbacks: { afterBody: () => 'Click to view transactions' } },
                     },
                     scales: {
                         x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.1)' } },
@@ -319,12 +393,12 @@
             });
         }
 
+        /* ─── Category Doughnut Chart (clickable slices) ─── */
         function renderCategoryPie(categories) {
             if (categoryChart) { categoryChart.destroy(); categoryChart = null; }
             const canvas = document.getElementById('chart-categories');
             if (!canvas) return;
 
-            // Remove any previous "no data" overlay
             const existingMsg = canvas.parentElement.querySelector('.no-data-msg');
             if (existingMsg) existingMsg.remove();
 
@@ -355,16 +429,29 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    onClick: (evt, elements) => {
+                        if (elements.length > 0) {
+                            const idx = elements[0].index;
+                            const category = _categoryData[idx].category;
+                            drillDown({ category, direction: 'out' });
+                        }
+                    },
                     plugins: {
                         legend: {
                             position: 'right',
                             labels: { color: '#94a3b8', font: { size: 11 }, padding: 8, usePointStyle: true },
+                            onClick: (e, legendItem, legend) => {
+                                const category = _categoryData[legendItem.index]?.category;
+                                if (category) drillDown({ category, direction: 'out' });
+                            },
                         },
+                        tooltip: { callbacks: { afterBody: () => 'Click to view transactions' } },
                     },
                 }
             });
         }
 
+        /* ─── Top Merchants Table (clickable rows) ─── */
         function renderMerchants(merchants) {
             const tbody = document.getElementById('merchants-table');
             if (!merchants || merchants.length === 0) {
@@ -372,16 +459,17 @@
                 return;
             }
             tbody.innerHTML = merchants.map((m, i) => `
-                <tr>
+                <tr class="merchant-row-link" onclick="drillDown({merchant:'${escapeAttr(m.merchant)}'})">
                     <td class="text-muted">${i + 1}</td>
-                    <td style="font-weight:500;color:var(--text-primary);">${m.merchant || 'Unknown'}</td>
-                    <td><span class="badge badge-accent">${m.category || '—'}</span></td>
+                    <td style="font-weight:500;color:var(--text-primary);">${escapeHtml(m.merchant || 'Unknown')} <span class="drill-hint">\u2192</span></td>
+                    <td><span class="badge badge-accent">${escapeHtml(m.category || '\u2014')}</span></td>
                     <td class="text-right font-mono">${formatCurrency(m.total_spent)}</td>
                     <td class="text-right">${m.transaction_count}</td>
                 </tr>
             `).join('');
         }
 
+        /* ─── Recurring Payments (clickable items) ─── */
         function renderRecurring(recurring) {
             const container = document.getElementById('recurring-list');
             if (!recurring || recurring.length === 0) {
@@ -389,31 +477,105 @@
                 return;
             }
             container.innerHTML = recurring.map(r => `
-                <div style="display:flex;justify-content:space-between;align-items:center;padding:0.75rem 0;border-bottom:1px solid var(--border);">
-                    <div>
-                        <div style="font-weight:500;">${r.merchant}</div>
-                        <div class="text-xs text-muted">Every ~${Math.round(r.frequency_days)} days · ${r.category || ''}</div>
+                <div class="recurring-item" onclick="drillDown({merchant:'${escapeAttr(r.merchant)}', flags:'recurring'})" title="View recurring transactions for ${escapeAttr(r.merchant)}">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div>
+                            <div style="font-weight:500;">${escapeHtml(r.merchant)} <span class="drill-hint">\u2192</span></div>
+                            <div class="text-xs text-muted">Every ~${Math.round(r.frequency_days)} days \u00b7 ${escapeHtml(r.category || '')}</div>
+                        </div>
+                        <div class="font-mono" style="font-weight:600;">${formatCurrency(r.average_amount)}</div>
                     </div>
-                    <div class="font-mono" style="font-weight:600;">${formatCurrency(r.average_amount)}</div>
                 </div>
             `).join('');
         }
 
+        /* ─── Anomaly Alerts (clickable items) ─── */
         function renderAnomalies(anomalies) {
             const container = document.getElementById('anomalies-list');
             if (!anomalies || anomalies.length === 0) {
-                container.innerHTML = '<div class="empty-state" style="padding:1.5rem;"><div class="empty-title text-sm">No anomalies detected ✓</div></div>';
+                container.innerHTML = '<div class="empty-state" style="padding:1.5rem;"><div class="empty-title text-sm">No anomalies detected \u2713</div></div>';
                 return;
             }
             container.innerHTML = anomalies.slice(0, 10).map(a => `
-                <div class="alert alert-warning" style="margin-bottom:0.5rem;padding:0.6rem 0.8rem;font-size:0.85rem;">
-                    <span>⚠️</span>
+                <div class="alert alert-warning anomaly-item" style="margin-bottom:0.5rem;padding:0.6rem 0.8rem;font-size:0.85rem;"
+                     onclick="drillDown({merchant:'${escapeAttr(a.merchant_clean || '')}', flags:'anomaly'})"
+                     title="View anomalous transactions for ${escapeAttr(a.merchant_clean || 'this merchant')}">
+                    <span>\u26a0\ufe0f</span>
                     <div style="flex:1;">
-                        <strong>${a.merchant_clean || 'Unknown'}</strong> — ${formatCurrency(a.amount)}
-                        <div class="text-xs">${formatDate(a.date)} · ${a.category} · z-score: ${(a.zscore || 0).toFixed(1)}</div>
+                        <strong>${escapeHtml(a.merchant_clean || 'Unknown')}</strong> \u2014 ${formatCurrency(a.amount)}
+                        <span class="drill-hint" style="margin-left:0.5rem;">\u2192</span>
+                        <div class="text-xs">${formatDate(a.date)} \u00b7 ${escapeHtml(a.category)} \u00b7 z-score: ${(a.zscore || 0).toFixed(1)}</div>
                     </div>
                 </div>
             `).join('');
+        }
+
+        /* ─── Account Minimums (clickable cards) ─── */
+        function renderAccountMinimums(data) {
+            const section = document.getElementById('acct-min-section');
+            const grid = document.getElementById('acct-min-grid');
+
+            if (!data || !data.accounts || data.accounts.length === 0) {
+                section.style.display = 'none';
+                return;
+            }
+
+            section.style.display = '';
+            let html = '';
+
+            // Grand total card
+            html += `
+                <div class="acct-min-card acct-min-total" onclick="drillDown({flags:'recurring'})" title="View all recurring transactions">
+                    <div class="acct-header">
+                        <div class="acct-name">\ud83d\udcb0 Total Monthly Recurring</div>
+                        <span class="drill-hint">\u2192</span>
+                    </div>
+                    <div class="acct-amount">${formatCurrency(data.total_monthly_recurring)}</div>
+                    <div class="acct-items">Across ${data.accounts.length} account(s) \u00b7 ${data.accounts.reduce((s,a) => s + a.item_count, 0)} recurring payments</div>
+                </div>
+            `;
+
+            // Per-account cards
+            for (const acct of data.accounts) {
+                const typeClass = acct.account_type === 'checking' ? 'acct-type-checking' : 'acct-type-credit';
+                const typeLabel = acct.account_type === 'checking' ? 'Chequing' : 'Credit';
+                const amountLabel = acct.account_type === 'checking' ? 'Min Balance Needed' : 'Min Monthly Spend';
+
+                const visibleItems = acct.items.slice(0, 5);
+                const hiddenCount = Math.max(0, acct.items.length - 5);
+
+                html += `
+                    <div class="acct-min-card" onclick="drillDown({account_type:'${acct.account_type}', institution:'${escapeAttr(acct.institution)}', flags:'recurring'})" title="View ${typeLabel} recurring transactions at ${escapeAttr(acct.institution)}">
+                        <div class="acct-header">
+                            <div class="acct-name">${escapeHtml(acct.institution)}</div>
+                            <span class="acct-type ${typeClass}">${typeLabel}</span>
+                        </div>
+                        <div class="text-xs text-muted" style="margin-bottom:0.25rem;">${amountLabel}</div>
+                        <div class="acct-amount" style="${acct.account_type === 'checking' ? 'color:#22c55e;' : 'color:#a78bfa;'}">${formatCurrency(acct.minimum_required)}</div>
+                        <div class="acct-items">
+                            ${visibleItems.map(item => `
+                                <div class="acct-item-row">
+                                    <span>${escapeHtml(item.merchant)}</span>
+                                    <span class="font-mono">${formatCurrency(item.monthly_estimate)}/mo</span>
+                                </div>
+                            `).join('')}
+                            ${hiddenCount > 0 ? `<div class="text-xs text-muted" style="text-align:center;padding-top:0.25rem;">+${hiddenCount} more</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
+            grid.innerHTML = html;
+        }
+
+        /* ─── Utility ─── */
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+        function escapeAttr(str) {
+            if (!str) return '';
+            return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         }
     </script>
 </body>

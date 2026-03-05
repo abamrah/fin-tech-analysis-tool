@@ -4,15 +4,17 @@ All endpoints accept optional date_from / date_to query params for period filter
 """
 
 import logging
+from collections import defaultdict
 from datetime import date
+from decimal import Decimal
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 
 from app.database import get_db
-from app.models import User, Transaction
+from app.models import User, Transaction, Account
 from app.schemas import (
     DashboardOverview, CategoryBreakdown, MerchantRanking,
     RecurringPayment, AnomalyAlert,
@@ -134,3 +136,87 @@ async def get_monthly_summary(
         date_from=date_from, date_to=date_to,
     )
     return data
+
+
+@router.get("/account-minimums")
+async def get_account_minimums(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Calculate minimum required amounts per account based on recurring payments.
+    - Chequing accounts: sum of all recurring debits (mortgage, bills, utilities, etc.)
+    - Credit accounts: sum of all recurring credit card charges (subscriptions, recurring purchases)
+    Groups by institution + account_type.
+    """
+    # Get all recurring payments
+    recurring = await recurring_detection.detect_recurring(user_id=user.id, db=db)
+
+    if not recurring:
+        return {"accounts": [], "total_monthly_recurring": 0}
+
+    # For each recurring merchant, find which account(s) the transactions come from
+    # by querying the most recent matching transaction per merchant
+    account_recurring = defaultdict(lambda: {"items": [], "total": Decimal("0")})
+
+    for r in recurring:
+        merchant = r["merchant"]
+        avg_amount = r["average_amount"]
+
+        # Find the most recent transaction for this merchant to determine account
+        result = await db.execute(
+            select(Transaction.account_id).where(
+                and_(
+                    Transaction.user_id == user.id,
+                    Transaction.merchant_clean == merchant,
+                    Transaction.direction == "out",
+                    Transaction.is_duplicate == False,
+                )
+            ).order_by(Transaction.date.desc()).limit(1)
+        )
+        row = result.scalar_one_or_none()
+
+        if row:
+            acct_result = await db.execute(
+                select(Account).where(Account.id == row)
+            )
+            account = acct_result.scalar_one_or_none()
+            if account:
+                key = f"{account.institution_name or 'Unknown'}|{account.account_type}"
+                # Monthly amount: if frequency < 20 days, estimate monthly (e.g. bi-weekly * 2)
+                freq = r.get("frequency_days", 30)
+                if freq < 1:
+                    freq = 30
+                monthly_amount = avg_amount * Decimal(str(round(30.0 / freq, 2)))
+                account_recurring[key]["items"].append({
+                    "merchant": merchant,
+                    "average_amount": float(avg_amount),
+                    "monthly_estimate": float(round(monthly_amount, 2)),
+                    "frequency_days": r.get("frequency_days", 30),
+                    "category": r.get("category", ""),
+                })
+                account_recurring[key]["total"] += monthly_amount
+
+    # Build response grouped by account
+    accounts = []
+    grand_total = Decimal("0")
+    for key, data in sorted(account_recurring.items(), key=lambda x: float(x[1]["total"]), reverse=True):
+        institution, account_type = key.split("|", 1)
+        total = round(data["total"], 2)
+        grand_total += total
+
+        label = "Chequing" if account_type == "checking" else "Credit Card"
+
+        accounts.append({
+            "institution": institution,
+            "account_type": account_type,
+            "account_label": f"{institution} — {label}",
+            "minimum_required": float(total),
+            "item_count": len(data["items"]),
+            "items": sorted(data["items"], key=lambda x: x["monthly_estimate"], reverse=True),
+        })
+
+    return {
+        "accounts": accounts,
+        "total_monthly_recurring": float(round(grand_total, 2)),
+    }

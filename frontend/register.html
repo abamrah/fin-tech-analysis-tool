@@ -46,7 +46,7 @@
     <script src="/js/api.js"></script>
     <script>
         if (isAuthenticated()) {
-            window.location.href = '/dashboard.html';
+            window.location.href = '/home.html';
         }
 
         document.getElementById('register-form').addEventListener('submit', async (e) => {
@@ -67,7 +67,7 @@
 
             try {
                 await apiRegister(email, password, full_name);
-                window.location.href = '/dashboard.html';
+                window.location.href = '/home.html';
             } catch (err) {
                 showAlert(document.getElementById('alert-container'), err.message);
             } finally {

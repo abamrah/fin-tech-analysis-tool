@@ -61,6 +61,8 @@ def init_db():
     from app.models import (  # noqa: F401 — ensure models are imported
         User, Account, Statement, Transaction,
         Budget, Goal, MerchantCategoryMap, FinancialPlan,
+        GamificationProfile, Challenge, Achievement, ActivityLog,
+        FlashcardDeck, FlashcardCard, FlashcardProgress,
     )
     logger.info("Creating database tables...")
     Base.metadata.create_all(bind=sync_engine)
@@ -137,3 +139,21 @@ def _run_migrations():
                 conn.execute(text(
                     "ALTER TABLE statements ADD COLUMN duplicate_transactions INTEGER DEFAULT 0"
                 ))
+
+    # ── Make statement_id nullable + add source column for manual transactions ──
+    if "transactions" in table_names:
+        existing_txn = {c["name"] for c in insp.get_columns("transactions")}
+        with sync_engine.begin() as conn:
+            if "source" not in existing_txn:
+                logger.info("Migration: adding source column to transactions")
+                conn.execute(text(
+                    "ALTER TABLE transactions ADD COLUMN source VARCHAR(20) DEFAULT 'statement'"
+                ))
+            # Make statement_id nullable for manual transactions
+            try:
+                conn.execute(text(
+                    "ALTER TABLE transactions ALTER COLUMN statement_id DROP NOT NULL"
+                ))
+                logger.info("Migration: made statement_id nullable")
+            except Exception:
+                pass  # Already nullable

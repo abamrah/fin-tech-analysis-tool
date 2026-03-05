@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planning Suite — Financial Intelligence Engine</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="main-content">
+    <header class="page-header">
+        <div>
+            <h1>🧮 Planning Suite</h1>
+            <p class="text-secondary">Scenario modelling, debt payoff strategies &amp; retirement projections</p>
+        </div>
+    </header>
+
+    <!-- Tab Navigation -->
+    <div class="suite-tabs" id="suite-tabs">
+        <button class="suite-tab active" data-tab="scenario">
+            <span class="tab-icon">🔮</span>
+            <span class="tab-label">What-If</span>
+        </button>
+        <button class="suite-tab" data-tab="debt">
+            <span class="tab-icon">⚖️</span>
+            <span class="tab-label">Debt Payoff</span>
+        </button>
+        <button class="suite-tab" data-tab="retirement">
+            <span class="tab-icon">🏖️</span>
+            <span class="tab-label">Retirement</span>
+        </button>
+    </div>
+
+    <!-- ════════════════════════════════════════════════ -->
+    <!--  TAB 1: SCENARIO / WHAT-IF                     -->
+    <!-- ════════════════════════════════════════════════ -->
+    <div class="suite-panel active" id="panel-scenario">
+        <div class="panel-intro">
+            <h2>🔮 What-If Scenario Analysis</h2>
+            <p>See how changes to your income, expenses, or savings affect your future net worth.</p>
+        </div>
+
+        <div class="form-grid-2col">
+            <div class="form-section">
+                <h3>📊 Your Current Numbers</h3>
+                <div class="form-group">
+                    <label>Monthly Income</label>
+                    <div class="input-icon"><span>$</span><input type="number" id="sc-income" value="0" min="0" step="100"></div>
+                </div>
+                <div class="form-group">
+                    <label>Monthly Expenses</label>
+                    <div class="input-icon"><span>$</span><input type="number" id="sc-expenses" value="0" min="0" step="100"></div>
+                </div>
+                <div class="form-group">
+                    <label>Monthly Savings</label>
+                    <div class="input-icon"><span>$</span><input type="number" id="sc-savings" value="0" min="0" step="50"></div>
+                </div>
+                <div class="form-group">
+                    <label>Current Savings Balance</label>
+                    <div class="input-icon"><span>$</span><input type="number" id="sc-current-savings" value="0" min="0" step="500"></div>
+                </div>
+                <div class="form-group">
+                    <label>Total Debt</label>
+                    <div class="input-icon"><span>$</span><input type="number" id="sc-debt" value="0" min="0" step="500"></div>
+                </div>
+                <div class="form-group">
+                    <label>Avg Debt Interest Rate (%)</label>
+                    <div class="input-icon"><span>%</span><input type="number" id="sc-debt-rate" value="5" min="0" max="30" step="0.5"></div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h3>🎛️ Adjustments</h3>
+                <div class="form-group">
+                    <label>Income Change
+                        <span class="slider-value" id="sc-adj-income-val">+0%</span>
+                    </label>
+                    <input type="range" id="sc-adj-income" min="-50" max="100" value="0" class="range-slider">
+                </div>
+                <div class="form-group">
+                    <label>Expense Change
+                        <span class="slider-value" id="sc-adj-expense-val">+0%</span>
+                    </label>
+                    <input type="range" id="sc-adj-expense" min="-50" max="50" value="0" class="range-slider">
+                </div>
+                <div class="form-group">
+                    <label>Extra Debt Payment</label>
+                    <div class="input-icon"><span>$</span><input type="number" id="sc-adj-extra-debt" value="0" min="0" step="50"></div>
+                </div>
+                <div class="form-group">
+                    <label>Extra Savings</label>
+                    <div class="input-icon"><span>$</span><input type="number" id="sc-adj-extra-save" value="0" min="0" step="50"></div>
+                </div>
+                <div class="form-group">
+                    <label>One-Time Income (bonus/refund)</label>
+                    <div class="input-icon"><span>$</span><input type="number" id="sc-adj-onetime-in" value="0" min="0" step="500"></div>
+                </div>
+                <div class="form-group">
+                    <label>Projection Period</label>
+                    <select id="sc-months" class="form-control">
+                        <option value="12">1 Year</option>
+                        <option value="24">2 Years</option>
+                        <option value="36">3 Years</option>
+                        <option value="60" selected>5 Years</option>
+                        <option value="120">10 Years</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn btn-primary btn-lg btn-full-mobile" id="btn-run-scenario">🚀 Run Scenario</button>
+
+        <div id="scenario-results" style="display:none">
+            <div class="kpi-grid scenario-kpis">
+                <div class="kpi-card"><span class="kpi-label">Final Net Worth</span><span class="kpi-value" id="sc-r-networth">—</span></div>
+                <div class="kpi-card"><span class="kpi-label">vs Baseline</span><span class="kpi-value" id="sc-r-diff">—</span></div>
+                <div class="kpi-card"><span class="kpi-label">Debt-Free In</span><span class="kpi-value" id="sc-r-debtfree">—</span></div>
+                <div class="kpi-card"><span class="kpi-label">Total Interest Paid</span><span class="kpi-value" id="sc-r-interest">—</span></div>
+            </div>
+            <div class="chart-card" style="margin-top:1rem">
+                <h3>Net Worth Projection</h3>
+                <canvas id="chart-scenario"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════ -->
+    <!--  TAB 2: DEBT PAYOFF                            -->
+    <!-- ════════════════════════════════════════════════ -->
+    <div class="suite-panel" id="panel-debt">
+        <div class="panel-intro">
+            <h2>⚖️ Debt Payoff Calculator</h2>
+            <p>Compare avalanche vs snowball strategies. See exactly when you'll be debt-free.</p>
+        </div>
+
+        <div class="debt-form">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;">
+                <h3>Your Debts</h3>
+                <span class="text-muted text-sm" id="debt-total-label"></span>
+            </div>
+
+            <!-- Column headers -->
+            <div class="debt-header" style="display:grid;grid-template-columns:2fr 1.2fr 0.8fr 0.8fr 1.2fr auto;gap:.5rem;padding:0 .1rem;margin-bottom:.25rem;">
+                <span class="text-xs text-muted" style="text-transform:uppercase;letter-spacing:.04em;font-weight:600;">Name</span>
+                <span class="text-xs text-muted" style="text-transform:uppercase;letter-spacing:.04em;font-weight:600;">Balance</span>
+                <span class="text-xs text-muted" style="text-transform:uppercase;letter-spacing:.04em;font-weight:600;">Rate %</span>
+                <span class="text-xs text-muted" style="text-transform:uppercase;letter-spacing:.04em;font-weight:600;">Amort (yr)</span>
+                <span class="text-xs text-muted" style="text-transform:uppercase;letter-spacing:.04em;font-weight:600;">Min. Payment</span>
+                <span style="width:32px;"></span>
+            </div>
+
+            <div id="debt-list"></div>
+            <button class="btn btn-secondary btn-sm" id="btn-add-debt" style="margin-top:.75rem">+ Add Debt</button>
+
+            <div style="border-top:1px solid var(--border);margin-top:1.25rem;padding-top:1.25rem;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                    <div class="form-group">
+                        <label>Extra Monthly Payment <span class="text-muted text-xs">(above all minimums)</span></label>
+                        <div class="input-icon"><span>$</span><input type="number" id="debt-extra" value="0" min="0" step="25"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Your Monthly Income <span class="text-muted text-xs">(for affordability check)</span></label>
+                        <div class="input-icon"><span>$</span><input type="number" id="debt-income" value="0" min="0" step="100"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Affordability summary -->
+            <div id="debt-afford-bar" style="display:none;padding:.75rem 1rem;margin-top:.75rem;border-radius:var(--radius-sm);font-size:.85rem;border:1px solid var(--border);background:var(--bg-secondary);"></div>
+
+            <button class="btn btn-primary btn-lg btn-full-mobile" id="btn-run-debt" style="margin-top:1rem">📊 Compare Strategies</button>
+        </div>
+
+        <div id="debt-results" style="display:none">
+            <!-- Strategy comparison cards -->
+            <div class="strategy-compare" id="strategy-compare"></div>
+
+            <!-- Per-debt breakdown -->
+            <div id="debt-per-debt-breakdown" style="display:none;margin-top:1rem;" class="form-section"></div>
+
+            <!-- Recommendation -->
+            <div class="recommendation-card" id="debt-recommendation"></div>
+
+            <!-- Chart -->
+            <div class="chart-card" style="margin-top:1rem">
+                <h3>Debt Payoff Timeline</h3>
+                <canvas id="chart-debt"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════ -->
+    <!--  TAB 3: RETIREMENT / FIRE                      -->
+    <!-- ════════════════════════════════════════════════ -->
+    <div class="suite-panel" id="panel-retirement">
+        <div class="panel-intro">
+            <h2>🏖️ Retirement & FIRE Calculator</h2>
+            <p>Project when you can retire. See your FIRE number and readiness score.</p>
+        </div>
+
+        <div class="form-grid-2col">
+            <div class="form-section">
+                <h3>👤 Personal Info</h3>
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <label>Current Age</label>
+                        <input type="number" id="ret-age" value="30" min="18" max="80" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>Retirement Age</label>
+                        <input type="number" id="ret-retire-age" value="65" min="30" max="90" class="form-control">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Life Expectancy</label>
+                    <input type="number" id="ret-life" value="90" min="65" max="110" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Desired Annual Retirement Income</label>
+                    <div class="input-icon"><span>$</span><input type="number" id="ret-desired-income" value="50000" min="0" step="5000"></div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h3>💰 Financial Details</h3>
+                <div class="form-group">
+                    <label>Current Savings + Emergency</label>
+                    <div class="input-icon"><span>$</span><input type="number" id="ret-savings" value="0" min="0" step="1000"></div>
+                </div>
+                <div class="form-group">
+                    <label>Current Investments (TFSA/RRSP/etc)</label>
+                    <div class="input-icon"><span>$</span><input type="number" id="ret-investments" value="0" min="0" step="1000"></div>
+                </div>
+                <div class="form-group">
+                    <label>Monthly Contribution</label>
+                    <div class="input-icon"><span>$</span><input type="number" id="ret-contribution" value="500" min="0" step="50"></div>
+                </div>
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <label>Expected Return (%)</label>
+                        <input type="number" id="ret-return" value="7" min="1" max="15" step="0.5" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>Inflation (%)</label>
+                        <input type="number" id="ret-inflation" value="2.5" min="0" max="10" step="0.5" class="form-control">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-section" style="margin-top:1rem">
+            <h3>🇨🇦 Government Benefits (Monthly)</h3>
+            <div class="form-row-3">
+                <div class="form-group">
+                    <label>CPP</label>
+                    <div class="input-icon"><span>$</span><input type="number" id="ret-cpp" value="800" min="0" step="50"></div>
+                </div>
+                <div class="form-group">
+                    <label>OAS</label>
+                    <div class="input-icon"><span>$</span><input type="number" id="ret-oas" value="700" min="0" step="50"></div>
+                </div>
+                <div class="form-group">
+                    <label>Pension</label>
+                    <div class="input-icon"><span>$</span><input type="number" id="ret-pension" value="0" min="0" step="50"></div>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn btn-primary btn-lg btn-full-mobile" id="btn-run-retirement" style="margin-top:1rem">🏖️ Calculate Retirement</button>
+
+        <div id="retirement-results" style="display:none">
+            <!-- Readiness Score -->
+            <div class="readiness-hero" id="readiness-hero">
+                <div class="readiness-ring-wrap">
+                    <svg class="readiness-ring" viewBox="0 0 120 120">
+                        <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="10"/>
+                        <circle id="readiness-arc" cx="60" cy="60" r="52" fill="none" stroke="var(--accent)" stroke-width="10" stroke-linecap="round" stroke-dasharray="327" stroke-dashoffset="327" transform="rotate(-90 60 60)"/>
+                    </svg>
+                    <div class="readiness-score-text" id="readiness-score">0</div>
+                </div>
+                <div class="readiness-info">
+                    <div class="readiness-label" id="readiness-label">Calculating…</div>
+                    <div class="readiness-sub" id="readiness-sub"></div>
+                </div>
+            </div>
+
+            <!-- KPIs -->
+            <div class="kpi-grid" style="margin-top:1.5rem">
+                <div class="kpi-card"><span class="kpi-label">Portfolio at Retirement</span><span class="kpi-value text-success" id="ret-r-portfolio">—</span></div>
+                <div class="kpi-card"><span class="kpi-label">FIRE Number</span><span class="kpi-value text-accent" id="ret-r-fire">—</span></div>
+                <div class="kpi-card"><span class="kpi-label">FIRE Age</span><span class="kpi-value" id="ret-r-fire-age">—</span></div>
+                <div class="kpi-card"><span class="kpi-label">Withdrawal Rate</span><span class="kpi-value" id="ret-r-wr">—</span></div>
+            </div>
+
+            <!-- FIRE Bars -->
+            <div class="fire-bars" id="fire-bars"></div>
+
+            <!-- Chart -->
+            <div class="chart-card" style="margin-top:1rem">
+                <h3>Portfolio Projection</h3>
+                <canvas id="chart-retirement"></canvas>
+            </div>
+
+            <!-- Tips -->
+            <div class="tips-card" id="retirement-tips"></div>
+        </div>
+    </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/navbar.js"></script>
+<script>
+(function() {
+    if (!requireAuth()) return;
+
+    // Charts
+    let scenarioChart = null, debtChart = null, retirementChart = null;
+    const chartFont = { family: "'Inter', sans-serif" };
+    const chartGrid = { color: 'rgba(255,255,255,.06)' };
+    const chartTick = { color: '#94a3b8', font: { size: 11, ...chartFont } };
+
+    // ═══════════════════════════════════════════════
+    //  TAB SWITCHING
+    // ═══════════════════════════════════════════════
+    document.querySelectorAll('.suite-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.suite-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.suite-panel').forEach(p => p.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+        });
+    });
+
+    // ═══════════════════════════════════════════════
+    //  SCENARIO
+    // ═══════════════════════════════════════════════
+
+    // Slider live labels
+    ['sc-adj-income', 'sc-adj-expense'].forEach(id => {
+        const slider = document.getElementById(id);
+        const label = document.getElementById(id + '-val');
+        slider.addEventListener('input', () => {
+            const v = parseInt(slider.value);
+            label.textContent = (v >= 0 ? '+' : '') + v + '%';
+            label.style.color = v > 0
+                ? (id.includes('expense') ? 'var(--danger)' : 'var(--success)')
+                : v < 0
+                    ? (id.includes('expense') ? 'var(--success)' : 'var(--danger)')
+                    : 'var(--text-secondary)';
+        });
+    });
+
+    // Load defaults from planner
+    async function loadScenarioDefaults() {
+        try {
+            const d = await apiGetScenarioDefaults();
+            if (d.income) document.getElementById('sc-income').value = Math.round(d.income);
+            if (d.expenses) document.getElementById('sc-expenses').value = Math.round(d.expenses);
+            if (d.monthly_savings) document.getElementById('sc-savings').value = Math.round(d.monthly_savings);
+            if (d.current_savings) document.getElementById('sc-current-savings').value = Math.round(d.current_savings);
+            if (d.total_debt) document.getElementById('sc-debt').value = Math.round(d.total_debt);
+            if (d.avg_debt_rate) document.getElementById('sc-debt-rate').value = d.avg_debt_rate;
+        } catch (e) { console.warn('Could not load scenario defaults:', e); }
+    }
+
+    document.getElementById('btn-run-scenario').addEventListener('click', async () => {
+        const btn = document.getElementById('btn-run-scenario');
+        btn.disabled = true; btn.textContent = '⏳ Running…';
+
+        try {
+            const result = await apiRunScenario({
+                overrides: {
+                    income: parseFloat(document.getElementById('sc-income').value) || 0,
+                    expenses: parseFloat(document.getElementById('sc-expenses').value) || 0,
+                    monthly_savings: parseFloat(document.getElementById('sc-savings').value) || 0,
+                    current_savings: parseFloat(document.getElementById('sc-current-savings').value) || 0,
+                    total_debt: parseFloat(document.getElementById('sc-debt').value) || 0,
+                    avg_debt_rate: parseFloat(document.getElementById('sc-debt-rate').value) || 0,
+                },
+                adjustments: {
+                    income_change_pct: parseFloat(document.getElementById('sc-adj-income').value) || 0,
+                    expense_change_pct: parseFloat(document.getElementById('sc-adj-expense').value) || 0,
+                    extra_debt_payment: parseFloat(document.getElementById('sc-adj-extra-debt').value) || 0,
+                    extra_savings: parseFloat(document.getElementById('sc-adj-extra-save').value) || 0,
+                    one_time_income: parseFloat(document.getElementById('sc-adj-onetime-in').value) || 0,
+                },
+                months: parseInt(document.getElementById('sc-months').value),
+            });
+
+            renderScenarioResults(result);
+        } catch (e) {
+            console.error(e);
+            alert('Failed to run scenario');
+        }
+        btn.disabled = false; btn.textContent = '🚀 Run Scenario';
+    });
+
+    function renderScenarioResults(r) {
+        document.getElementById('scenario-results').style.display = 'block';
+
+        const proj = r.projection;
+        const imp = r.improvement;
+
+        document.getElementById('sc-r-networth').textContent = formatCurrency(proj.final_net_worth);
+        const diff = imp.net_worth_diff;
+        const diffEl = document.getElementById('sc-r-diff');
+        diffEl.textContent = (diff >= 0 ? '+' : '') + formatCurrency(diff);
+        diffEl.className = 'kpi-value ' + (diff >= 0 ? 'text-success' : 'text-danger');
+
+        document.getElementById('sc-r-debtfree').textContent =
+            proj.debt_free_month ? proj.debt_free_month + ' mo' : 'N/A';
+        document.getElementById('sc-r-interest').textContent = formatCurrency(proj.total_interest_paid);
+
+        // Chart
+        const tl = r.timeline;
+        if (scenarioChart) scenarioChart.destroy();
+        scenarioChart = new Chart(document.getElementById('chart-scenario'), {
+            type: 'line',
+            data: {
+                labels: tl.map(p => 'Mo ' + p.month),
+                datasets: [
+                    { label: 'Net Worth', data: tl.map(p => p.net_worth), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.1)', fill: true, tension: .3 },
+                    { label: 'Savings', data: tl.map(p => p.savings), borderColor: '#22c55e', tension: .3, borderDash: [5, 3] },
+                    { label: 'Debt', data: tl.map(p => p.debt), borderColor: '#ef4444', tension: .3, borderDash: [5, 3] },
+                ],
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { labels: { color: '#94a3b8', font: chartFont } } },
+                scales: {
+                    x: { ticks: chartTick, grid: chartGrid },
+                    y: { ticks: { ...chartTick, callback: v => '$' + (v/1000).toFixed(0) + 'k' }, grid: chartGrid },
+                },
+            },
+        });
+
+        document.getElementById('scenario-results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ═══════════════════════════════════════════════
+    //  DEBT PAYOFF
+    // ═══════════════════════════════════════════════
+
+    let debtItems = [];
+
+    /** Calculate monthly amortized payment locally (mirrors backend). */
+    function calcPaymentLocal(balance, rate, amortYears) {
+        if (balance <= 0 || amortYears <= 0) return 0;
+        const n = amortYears * 12;
+        if (rate <= 0) return Math.round(balance / n * 100) / 100;
+        const c = rate / 100 / 12;
+        return Math.round(balance * (c * Math.pow(1 + c, n)) / (Math.pow(1 + c, n) - 1) * 100) / 100;
+    }
+
+    function updateDebtTotalLabel() {
+        const total = debtItems.reduce((s, d) => s + (d.balance || 0), 0);
+        const totalMin = debtItems.reduce((s, d) => s + (d.minimum || 0), 0);
+        document.getElementById('debt-total-label').textContent =
+            `Total: ${formatCurrency(total)} · Min payments: ${formatCurrency(totalMin)}/mo`;
+        updateAffordabilityBar();
+    }
+
+    function updateAffordabilityBar() {
+        const bar = document.getElementById('debt-afford-bar');
+        const income = parseFloat(document.getElementById('debt-income').value) || 0;
+        const extra = parseFloat(document.getElementById('debt-extra').value) || 0;
+        const totalMin = debtItems.reduce((s, d) => s + (d.minimum || 0), 0);
+        const totalPayment = totalMin + extra;
+
+        if (income <= 0) {
+            bar.style.display = 'none';
+            return;
+        }
+
+        const pct = Math.round(totalPayment / income * 100);
+        const remaining = income - totalPayment;
+        let color, icon, msg;
+        if (pct > 80) {
+            color = 'var(--danger)'; icon = '🚨';
+            msg = `<strong>${pct}% of income</strong> goes to debt (${formatCurrency(totalPayment)}/mo). Only ${formatCurrency(remaining)} left for everything else. This is unsustainable.`;
+        } else if (pct > 50) {
+            color = 'var(--warning)'; icon = '⚠️';
+            msg = `<strong>${pct}% of income</strong> goes to debt (${formatCurrency(totalPayment)}/mo). ${formatCurrency(remaining)} left for living expenses. Consider lowering extra payments.`;
+        } else if (pct > 30) {
+            color = 'var(--accent)'; icon = 'ℹ️';
+            msg = `<strong>${pct}% of income</strong> goes to debt (${formatCurrency(totalPayment)}/mo). ${formatCurrency(remaining)} remaining — manageable.`;
+        } else {
+            color = 'var(--success)'; icon = '✅';
+            msg = `<strong>${pct}% of income</strong> goes to debt (${formatCurrency(totalPayment)}/mo). ${formatCurrency(remaining)} remaining — healthy debt load.`;
+        }
+
+        bar.style.display = 'block';
+        bar.style.borderColor = color;
+        bar.innerHTML = `${icon} ${msg}`;
+    }
+
+    function recalcMinimum(i) {
+        const d = debtItems[i];
+        if (d.amort_years > 0 && d.balance > 0) {
+            d.minimum = calcPaymentLocal(d.balance, d.rate, d.amort_years);
+        }
+    }
+
+    function renderDebtList() {
+        const container = document.getElementById('debt-list');
+        if (!debtItems.length) {
+            container.innerHTML = '<p class="text-secondary text-sm">No debts added. Click "Add Debt" or add loans in your Financial Planner.</p>';
+            document.getElementById('debt-total-label').textContent = '';
+            return;
+        }
+        container.innerHTML = debtItems.map((d, i) => `
+            <div class="debt-row">
+                <input type="text" value="${d.name}" placeholder="Name" class="form-control debt-name" data-i="${i}">
+                <div class="input-icon"><span>$</span><input type="number" value="${d.balance}" placeholder="Balance" min="0" step="100" class="debt-balance" data-i="${i}"></div>
+                <div class="input-icon"><span>%</span><input type="number" value="${d.rate}" placeholder="Rate" min="0" max="40" step="0.1" class="debt-rate" data-i="${i}"></div>
+                <input type="number" value="${d.amort_years || ''}" placeholder="e.g. 25" min="1" max="40" step="1" class="form-control debt-amort" data-i="${i}" title="Amortization in years — auto-calculates payment">
+                <div class="input-icon"><span>$</span><input type="number" value="${d.minimum}" placeholder="Monthly" min="0" step="10" class="debt-min ${d.amort_years > 0 ? 'auto-calc' : ''}" data-i="${i}" ${d.amort_years > 0 ? 'title="Auto-calculated from amortization" readonly' : 'title="Monthly minimum payment"'}></div>
+                <button class="btn-icon-delete" data-i="${i}" title="Remove">✕</button>
+            </div>
+        `).join('');
+
+        // Bind events
+        container.querySelectorAll('.debt-name').forEach(el => el.addEventListener('change', e => {
+            debtItems[e.target.dataset.i].name = e.target.value;
+        }));
+        container.querySelectorAll('.debt-balance').forEach(el => el.addEventListener('change', e => {
+            const i = parseInt(e.target.dataset.i);
+            debtItems[i].balance = parseFloat(e.target.value) || 0;
+            recalcMinimum(i);
+            renderDebtList();
+        }));
+        container.querySelectorAll('.debt-rate').forEach(el => el.addEventListener('change', e => {
+            const i = parseInt(e.target.dataset.i);
+            debtItems[i].rate = parseFloat(e.target.value) || 0;
+            recalcMinimum(i);
+            renderDebtList();
+        }));
+        container.querySelectorAll('.debt-amort').forEach(el => el.addEventListener('change', e => {
+            const i = parseInt(e.target.dataset.i);
+            const val = parseFloat(e.target.value) || 0;
+            debtItems[i].amort_years = val;
+            if (val > 0) {
+                recalcMinimum(i);
+            }
+            renderDebtList();
+        }));
+        container.querySelectorAll('.debt-min').forEach(el => el.addEventListener('change', e => {
+            const i = parseInt(e.target.dataset.i);
+            if (!debtItems[i].amort_years) {
+                debtItems[i].minimum = parseFloat(e.target.value) || 0;
+                updateDebtTotalLabel();
+            }
+        }));
+        container.querySelectorAll('.btn-icon-delete').forEach(el => el.addEventListener('click', e => {
+            debtItems.splice(parseInt(e.target.dataset.i), 1);
+            renderDebtList();
+        }));
+        updateDebtTotalLabel();
+    }
+
+    document.getElementById('btn-add-debt').addEventListener('click', () => {
+        debtItems.push({ name: `Debt ${debtItems.length + 1}`, balance: 0, rate: 5, minimum: 50, amort_years: 0 });
+        renderDebtList();
+    });
+
+    // Update affordability on input changes
+    document.getElementById('debt-extra').addEventListener('input', updateAffordabilityBar);
+    document.getElementById('debt-income').addEventListener('input', updateAffordabilityBar);
+
+    async function loadDebtDefaults() {
+        try {
+            const d = await apiGetScenarioDefaults();
+            if (d.loans && d.loans.length) {
+                debtItems = d.loans.filter(l => l.balance > 0).map(l => {
+                    const amort = l.amort_years || 0;
+                    let min = l.minimum || 0;
+                    // If no amort and no minimum, estimate from balance * 3%
+                    if (!amort && !min) min = Math.max(25, Math.round(l.balance * 0.03));
+                    return {
+                        name: l.name,
+                        balance: l.balance,
+                        rate: l.rate,
+                        minimum: min,
+                        amort_years: amort,
+                    };
+                });
+            }
+            if (!debtItems.length) {
+                debtItems = [{ name: 'Credit Card', balance: 5000, rate: 19.99, minimum: 100, amort_years: 0 }];
+            }
+            // Pre-fill income
+            if (d.income > 0) {
+                document.getElementById('debt-income').value = d.income;
+            }
+            renderDebtList();
+        } catch (e) {
+            debtItems = [{ name: 'Credit Card', balance: 5000, rate: 19.99, minimum: 100, amort_years: 0 }];
+            renderDebtList();
+        }
+    }
+
+    document.getElementById('btn-run-debt').addEventListener('click', async () => {
+        const btn = document.getElementById('btn-run-debt');
+        btn.disabled = true; btn.textContent = '⏳ Comparing…';
+
+        try {
+            const result = await apiDebtCompare({
+                debts: debtItems.filter(d => d.balance > 0),
+                extra_monthly: parseFloat(document.getElementById('debt-extra').value) || 0,
+            });
+            renderDebtResults(result);
+        } catch (e) {
+            console.error(e);
+            alert('Failed to calculate debt payoff');
+        }
+        btn.disabled = false; btn.textContent = '📊 Compare Strategies';
+    });
+
+    function renderDebtResults(r) {
+        document.getElementById('debt-results').style.display = 'block';
+
+        const av = r.avalanche.summary;
+        const sn = r.snowball.summary;
+        const cmp = r.comparison;
+        const income = parseFloat(document.getElementById('debt-income').value) || 0;
+
+        // Format payment with affordability context
+        function paymentWithContext(payment) {
+            if (income > 0) {
+                const pct = Math.round(payment / income * 100);
+                return `${formatCurrency(payment)} <span class="text-muted text-xs">(${pct}% of income)</span>`;
+            }
+            return formatCurrency(payment);
+        }
+
+        document.getElementById('strategy-compare').innerHTML = `
+            <div class="strategy-card ${cmp.recommendation === 'avalanche' ? 'recommended' : ''}">
+                <div class="strategy-badge">⛰️ Avalanche</div>
+                <div class="strategy-stat"><span class="stat-big">${av.total_months} mo</span><span class="stat-sub">${av.total_years} years</span></div>
+                <div class="strategy-detail"><span>Total Interest</span><span class="text-danger">${formatCurrency(av.total_interest)}</span></div>
+                <div class="strategy-detail"><span>Total Paid</span><span>${formatCurrency(av.total_paid)}</span></div>
+                <div class="strategy-detail"><span>Monthly Payment</span><span>${paymentWithContext(av.monthly_payment)}</span></div>
+                ${cmp.recommendation === 'avalanche' ? '<div class="strategy-rec">✨ Recommended</div>' : ''}
+            </div>
+            <div class="strategy-card ${cmp.recommendation === 'snowball' ? 'recommended' : ''}">
+                <div class="strategy-badge">☃️ Snowball</div>
+                <div class="strategy-stat"><span class="stat-big">${sn.total_months} mo</span><span class="stat-sub">${sn.total_years} years</span></div>
+                <div class="strategy-detail"><span>Total Interest</span><span class="text-danger">${formatCurrency(sn.total_interest)}</span></div>
+                <div class="strategy-detail"><span>Total Paid</span><span>${formatCurrency(sn.total_paid)}</span></div>
+                <div class="strategy-detail"><span>Monthly Payment</span><span>${paymentWithContext(sn.monthly_payment)}</span></div>
+                ${cmp.recommendation === 'snowball' ? '<div class="strategy-rec">✨ Recommended</div>' : ''}
+            </div>
+        `;
+
+        // Per-debt breakdown
+        const perDebtDiv = document.getElementById('debt-per-debt-breakdown');
+        const avDebts = r.avalanche.debts || [];
+        if (avDebts.length > 1) {
+            perDebtDiv.style.display = 'block';
+            perDebtDiv.innerHTML = `
+                <h3>📋 Per-Debt Breakdown <span class="text-muted text-xs">(Avalanche order)</span></h3>
+                <table style="width:100%;border-collapse:collapse;font-size:.85rem;margin-top:.5rem;">
+                    <thead>
+                        <tr style="border-bottom:1px solid var(--border);text-align:left;">
+                            <th style="padding:.5rem .25rem;color:var(--text-muted);font-weight:600;">Debt</th>
+                            <th style="padding:.5rem .25rem;color:var(--text-muted);font-weight:600;text-align:right;">Balance</th>
+                            <th style="padding:.5rem .25rem;color:var(--text-muted);font-weight:600;text-align:right;">Interest</th>
+                            <th style="padding:.5rem .25rem;color:var(--text-muted);font-weight:600;text-align:right;">Paid Off</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${avDebts.map(d => `
+                            <tr style="border-bottom:1px solid rgba(148,163,184,.1);">
+                                <td style="padding:.45rem .25rem;font-weight:500;">${d.name}</td>
+                                <td style="padding:.45rem .25rem;text-align:right;font-family:'JetBrains Mono',monospace;">${formatCurrency(d.original_balance)}</td>
+                                <td style="padding:.45rem .25rem;text-align:right;font-family:'JetBrains Mono',monospace;color:var(--danger);">${formatCurrency(d.total_interest)}</td>
+                                <td style="padding:.45rem .25rem;text-align:right;">Month ${d.paid_off_month} <span class="text-muted text-xs">(${(d.paid_off_month / 12).toFixed(1)} yr)</span></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        } else {
+            perDebtDiv.style.display = 'none';
+        }
+
+        document.getElementById('debt-recommendation').innerHTML = `
+            <div class="rec-icon">💡</div>
+            <div class="rec-text">${cmp.reason}</div>
+        `;
+
+        // Chart — avalanche timeline
+        const tl = r.avalanche.timeline;
+        if (debtChart) debtChart.destroy();
+
+        const datasets = [];
+        if (tl.length && tl[0].debts) {
+            const colors = ['#ef4444', '#f59e0b', '#3b82f6', '#22c55e', '#a855f7', '#ec4899'];
+            tl[0].debts.forEach((d, i) => {
+                datasets.push({
+                    label: d.name,
+                    data: tl.map(t => t.debts[i]?.balance || 0),
+                    borderColor: colors[i % colors.length],
+                    backgroundColor: colors[i % colors.length] + '20',
+                    fill: true,
+                    tension: .3,
+                });
+            });
+        }
+
+        debtChart = new Chart(document.getElementById('chart-debt'), {
+            type: 'line',
+            data: { labels: tl.map(t => 'Mo ' + t.month), datasets },
+            options: {
+                responsive: true,
+                plugins: { legend: { labels: { color: '#94a3b8', font: chartFont } } },
+                scales: {
+                    x: { ticks: chartTick, grid: chartGrid },
+                    y: { ticks: { ...chartTick, callback: v => '$' + (v/1000).toFixed(0) + 'k' }, grid: chartGrid },
+                },
+            },
+        });
+
+        document.getElementById('debt-results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ═══════════════════════════════════════════════
+    //  RETIREMENT / FIRE
+    // ═══════════════════════════════════════════════
+
+    document.getElementById('btn-run-retirement').addEventListener('click', async () => {
+        const btn = document.getElementById('btn-run-retirement');
+        btn.disabled = true; btn.textContent = '⏳ Calculating…';
+
+        try {
+            const result = await apiRetirementProjection({
+                current_age: parseInt(document.getElementById('ret-age').value),
+                retirement_age: parseInt(document.getElementById('ret-retire-age').value),
+                life_expectancy: parseInt(document.getElementById('ret-life').value),
+                current_savings: parseFloat(document.getElementById('ret-savings').value) || 0,
+                current_investments: parseFloat(document.getElementById('ret-investments').value) || 0,
+                monthly_contribution: parseFloat(document.getElementById('ret-contribution').value) || 0,
+                annual_return_pct: parseFloat(document.getElementById('ret-return').value) || 7,
+                inflation_pct: parseFloat(document.getElementById('ret-inflation').value) || 2.5,
+                desired_annual_income: parseFloat(document.getElementById('ret-desired-income').value) || 50000,
+                cpp_monthly: parseFloat(document.getElementById('ret-cpp').value) || 0,
+                oas_monthly: parseFloat(document.getElementById('ret-oas').value) || 0,
+                pension_monthly: parseFloat(document.getElementById('ret-pension').value) || 0,
+            });
+
+            renderRetirementResults(result);
+        } catch (e) {
+            console.error(e);
+            alert('Failed to calculate retirement projection');
+        }
+        btn.disabled = false; btn.textContent = '🏖️ Calculate Retirement';
+    });
+
+    function renderRetirementResults(r) {
+        document.getElementById('retirement-results').style.display = 'block';
+
+        // Readiness ring animation
+        const score = r.readiness.score;
+        const arc = document.getElementById('readiness-arc');
+        const circumference = 2 * Math.PI * 52;
+        const offset = circumference - (score / 100 * circumference);
+        arc.style.transition = 'stroke-dashoffset 1.5s ease';
+        arc.setAttribute('stroke-dasharray', circumference);
+        arc.setAttribute('stroke-dashoffset', offset);
+
+        const colorMap = { success: 'var(--success)', warning: 'var(--warning)', danger: 'var(--danger)' };
+        arc.setAttribute('stroke', colorMap[r.readiness.status_color] || 'var(--accent)');
+
+        document.getElementById('readiness-score').textContent = score;
+        document.getElementById('readiness-label').textContent = r.readiness.status_label;
+        document.getElementById('readiness-label').style.color = colorMap[r.readiness.status_color];
+        document.getElementById('readiness-sub').textContent =
+            `Withdrawal rate: ${r.readiness.actual_withdrawal_rate}% (safe: ${r.readiness.safe_withdrawal_rate}%)`;
+
+        // KPIs
+        document.getElementById('ret-r-portfolio').textContent = formatCurrency(r.accumulation.portfolio_at_retirement);
+        document.getElementById('ret-r-fire').textContent = formatCurrency(r.fire.fire_number);
+        document.getElementById('ret-r-fire-age').textContent = r.fire.fire_age ? `Age ${r.fire.fire_age}` : '—';
+        const wrEl = document.getElementById('ret-r-wr');
+        wrEl.textContent = r.readiness.actual_withdrawal_rate + '%';
+        wrEl.className = 'kpi-value ' + (r.readiness.actual_withdrawal_rate <= 4 ? 'text-success' : 'text-danger');
+
+        // FIRE bars
+        const portfolio = r.accumulation.portfolio_at_retirement;
+        const maxFire = Math.max(r.fire.fire_fat, portfolio) * 1.1;
+        document.getElementById('fire-bars').innerHTML = `
+            <h3 style="margin-bottom:.75rem">FIRE Progress</h3>
+            <div class="fire-bar-item">
+                <div class="fire-bar-label">Lean FIRE <span>${formatCurrency(r.fire.fire_lean)}</span></div>
+                <div class="fire-bar-track"><div class="fire-bar-fill" style="width:${Math.min(100, portfolio / r.fire.fire_lean * 100)}%;background:var(--warning)"></div></div>
+            </div>
+            <div class="fire-bar-item">
+                <div class="fire-bar-label">Regular FIRE <span>${formatCurrency(r.fire.fire_number)}</span></div>
+                <div class="fire-bar-track"><div class="fire-bar-fill" style="width:${Math.min(100, portfolio / r.fire.fire_number * 100)}%;background:var(--accent)"></div></div>
+            </div>
+            <div class="fire-bar-item">
+                <div class="fire-bar-label">Fat FIRE <span>${formatCurrency(r.fire.fire_fat)}</span></div>
+                <div class="fire-bar-track"><div class="fire-bar-fill" style="width:${Math.min(100, portfolio / r.fire.fire_fat * 100)}%;background:var(--success)"></div></div>
+            </div>
+        `;
+
+        // Chart
+        const accTL = r.accumulation.timeline;
+        const drawTL = r.drawdown.timeline;
+
+        if (retirementChart) retirementChart.destroy();
+        retirementChart = new Chart(document.getElementById('chart-retirement'), {
+            type: 'line',
+            data: {
+                labels: [...accTL.map(p => 'Age ' + p.age), ...drawTL.map(p => 'Age ' + p.age)],
+                datasets: [{
+                    label: 'Portfolio Value',
+                    data: [...accTL.map(p => p.portfolio), ...drawTL.map(p => p.portfolio)],
+                    borderColor: '#3b82f6',
+                    backgroundColor: (ctx) => {
+                        const chart = ctx.chart;
+                        const { ctx: c, chartArea } = chart;
+                        if (!chartArea) return 'rgba(59,130,246,.1)';
+                        const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                        g.addColorStop(0, 'rgba(59,130,246,.25)');
+                        g.addColorStop(1, 'rgba(59,130,246,.02)');
+                        return g;
+                    },
+                    fill: true,
+                    tension: .3,
+                    pointRadius: 3,
+                }],
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { labels: { color: '#94a3b8', font: chartFont } },
+                    annotation: {},
+                },
+                scales: {
+                    x: { ticks: chartTick, grid: chartGrid },
+                    y: { ticks: { ...chartTick, callback: v => '$' + (v >= 1000000 ? (v/1000000).toFixed(1)+'M' : (v/1000).toFixed(0) + 'k') }, grid: chartGrid },
+                },
+            },
+        });
+
+        // Tips
+        const tipsEl = document.getElementById('retirement-tips');
+        if (r.tips && r.tips.length) {
+            tipsEl.innerHTML = `
+                <h3>💡 Tips</h3>
+                <ul>${r.tips.map(t => `<li>${t}</li>`).join('')}</ul>
+            `;
+        } else {
+            tipsEl.innerHTML = '';
+        }
+
+        document.getElementById('retirement-results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ═══════════════════════════════════════════════
+    //  INIT
+    // ═══════════════════════════════════════════════
+    loadScenarioDefaults();
+    loadDebtDefaults();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hub — Financial Intelligence Engine</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="main-content">
+    <header class="page-header">
+        <div>
+            <h1>🏆 Gamification Hub</h1>
+            <p class="text-secondary">Level up your finances — complete challenges, earn XP, unlock badges.</p>
+        </div>
+        <button class="btn btn-primary" id="btn-refresh" title="Generate new challenges">🔄 New Challenges</button>
+    </header>
+
+    <!-- Hero — Level, XP, Avatar -->
+    <div class="hub-hero" id="hero-section">
+        <div class="hub-avatar" id="avatar" title="Click to change avatar">🧑‍💼</div>
+        <div class="hub-info">
+            <div class="hub-level-title" id="level-title">Level 1 · Beginner</div>
+            <h2 id="xp-display">0 XP</h2>
+            <div class="xp-bar-container">
+                <div class="xp-bar-fill" id="xp-bar" style="width:0%"></div>
+            </div>
+            <div class="hub-xp-text" id="xp-subtext">0 / 100 XP to next level</div>
+        </div>
+    </div>
+
+    <!-- Stat Cards -->
+    <div class="hub-stats" id="stats-row">
+        <div class="hub-stat-card">
+            <div class="hub-stat-icon streak-flame" id="streak-icon">🔥</div>
+            <div class="hub-stat-value" id="streak-days">0</div>
+            <div class="hub-stat-label">Day Streak</div>
+        </div>
+        <div class="hub-stat-card">
+            <div class="hub-stat-icon">⚡</div>
+            <div class="hub-stat-value" id="total-xp">0</div>
+            <div class="hub-stat-label">Total XP</div>
+        </div>
+        <div class="hub-stat-card">
+            <div class="hub-stat-icon">✅</div>
+            <div class="hub-stat-value" id="challenges-completed">0</div>
+            <div class="hub-stat-label">Challenges Won</div>
+        </div>
+        <div class="hub-stat-card">
+            <div class="hub-stat-icon">🏅</div>
+            <div class="hub-stat-value" id="badges-earned">0</div>
+            <div class="hub-stat-label">Badges Earned</div>
+        </div>
+    </div>
+
+    <!-- Grid: Challenges + Right Column -->
+    <div class="hub-grid">
+        <!-- Active Challenges -->
+        <div>
+            <div class="card" style="margin-bottom: 1.5rem;">
+                <h3>⚔️ Active Challenges</h3>
+                <div class="challenge-list" id="challenge-list">
+                    <p class="text-muted" style="padding: 1rem 0; text-align: center;">Loading challenges…</p>
+                </div>
+            </div>
+
+            <!-- Completed Challenges -->
+            <div class="card">
+                <h3>🏁 Recently Completed</h3>
+                <div class="challenge-list" id="completed-list">
+                    <p class="text-muted" style="padding: 0.5rem 0; text-align: center;">—</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Achievements + Activity -->
+        <div>
+            <div class="card" style="margin-bottom: 1.5rem;">
+                <h3>🎖️ Achievements</h3>
+                <div class="badge-grid" id="badge-grid">
+                    <p class="text-muted">Loading…</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>📜 Activity Feed</h3>
+                <div class="activity-feed" id="activity-feed">
+                    <p class="text-muted" style="text-align: center;">No activity yet.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Avatar Picker Modal -->
+    <div id="avatar-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;">
+        <div class="card" style="max-width:360px;width:90%;padding:1.5rem;">
+            <h3 style="margin-bottom:1rem;">Choose Your Avatar</h3>
+            <div id="avatar-options" style="display:flex;flex-wrap:wrap;gap:0.75rem;justify-content:center;font-size:2rem;cursor:pointer;"></div>
+            <button class="btn btn-secondary btn-block mt-2" onclick="document.getElementById('avatar-modal').classList.add('hidden')" style="margin-top:1rem;">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/navbar.js"></script>
+<script>
+(function() {
+    const AVATARS = ['🧑‍💼','🧑‍💻','🧙','🦸','🧑‍🚀','🥷','🧑‍🎓','🦊','🐯','🦉','🐲','💎','🌈','🔮','🎮','🛡️'];
+
+    let profileData = null;
+
+    async function loadHub() {
+        try {
+            profileData = await apiGetGamificationProfile();
+            renderHero(profileData);
+            renderStats(profileData);
+            renderChallenges(profileData);
+            renderCompleted(profileData);
+            renderBadges(profileData);
+            renderActivity(profileData);
+
+            // Show level-up toast if backend reported it
+            if (profileData.challenge_updates) {
+                profileData.challenge_updates.forEach(u => {
+                    if (u.status === 'completed') {
+                        showToast(`🎉 Challenge complete! +${u.xp} XP — "${u.title}"`);
+                    }
+                });
+            }
+        } catch(e) {
+            console.error('Hub load error', e);
+        }
+    }
+
+    /* ── Render Functions ────────────────────────── */
+
+    function renderHero(p) {
+        document.getElementById('avatar').textContent = p.avatar_emoji || '🧑‍💼';
+        document.getElementById('level-title').textContent = `Level ${p.level} · ${p.level_title}`;
+        document.getElementById('xp-display').textContent = `${p.xp.toLocaleString()} XP`;
+        document.getElementById('xp-bar').style.width = `${p.level_progress_pct}%`;
+        document.getElementById('xp-subtext').textContent =
+            `${p.xp_current_level} / ${p.xp_needed_for_level} XP to Level ${p.level + 1}`;
+    }
+
+    function renderStats(p) {
+        document.getElementById('streak-days').textContent = p.streak_days;
+        document.getElementById('total-xp').textContent = p.xp.toLocaleString();
+        document.getElementById('challenges-completed').textContent = p.total_challenges_completed;
+        const unlockedCount = (p.achievements || []).length;
+        document.getElementById('badges-earned').textContent = unlockedCount;
+
+        // Streak flame animation
+        const icon = document.getElementById('streak-icon');
+        if (p.streak_days >= 3) icon.classList.add('hot');
+    }
+
+    function renderChallenges(p) {
+        const list = document.getElementById('challenge-list');
+        if (!p.active_challenges || p.active_challenges.length === 0) {
+            list.innerHTML = '<p class="text-muted" style="padding:1rem 0;text-align:center;">No active challenges. Click "New Challenges" to start!</p>';
+            return;
+        }
+        list.innerHTML = p.active_challenges.map(ch => {
+            const pct = ch.is_spending
+                ? Math.max(0, Math.min(100, (1 - ch.current_value / ch.target_value) * 100))
+                : ch.progress_pct;
+            const colorClass = pct >= 70 ? 'good' : pct >= 40 ? 'warn' : 'danger';
+            const displayVal = ch.is_spending
+                ? `$${ch.current_value.toFixed(0)} / $${ch.target_value.toFixed(0)} limit`
+                : `${ch.current_value} / ${ch.target_value}`;
+            return `
+                <div class="challenge-card">
+                    <div class="challenge-header">
+                        <span class="challenge-type-badge ${ch.type}">${ch.type}</span>
+                        <span class="challenge-xp">+${ch.xp_reward} XP</span>
+                    </div>
+                    <div class="challenge-title">${ch.title}</div>
+                    <div class="challenge-desc">${ch.description}</div>
+                    <div class="challenge-progress-bar">
+                        <div class="challenge-progress-fill ${colorClass}" style="width:${pct.toFixed(1)}%"></div>
+                    </div>
+                    <div class="challenge-meta">
+                        <span>${displayVal}</span>
+                        <span>${ch.days_left} day${ch.days_left !== 1 ? 's' : ''} left</span>
+                    </div>
+                </div>`;
+        }).join('');
+    }
+
+    function renderCompleted(p) {
+        const list = document.getElementById('completed-list');
+        if (!p.completed_challenges || p.completed_challenges.length === 0) {
+            list.innerHTML = '<p class="text-muted" style="padding:0.5rem 0;text-align:center;">No completed challenges yet.</p>';
+            return;
+        }
+        list.innerHTML = p.completed_challenges.map(c => `
+            <div class="challenge-card" style="border-color: var(--success); opacity: 0.85;">
+                <div class="challenge-header">
+                    <span class="challenge-type-badge ${c.type}">${c.type}</span>
+                    <span class="challenge-xp" style="color: var(--success);">✅ +${c.xp_reward} XP</span>
+                </div>
+                <div class="challenge-title">${c.title}</div>
+            </div>
+        `).join('');
+    }
+
+    function renderBadges(p) {
+        const grid = document.getElementById('badge-grid');
+        const badges = p.all_badges || [];
+        if (badges.length === 0) {
+            grid.innerHTML = '<p class="text-muted">No badges available yet.</p>';
+            return;
+        }
+        grid.innerHTML = badges.map(b => `
+            <div class="badge-item ${b.unlocked ? 'unlocked' : 'locked'}" title="${b.desc}">
+                <div class="badge-icon">${b.icon}</div>
+                <div class="badge-name">${b.name}</div>
+                ${b.unlocked ? '<div class="badge-date">✓ Unlocked</div>' : ''}
+            </div>
+        `).join('');
+    }
+
+    function renderActivity(p) {
+        const feed = document.getElementById('activity-feed');
+        const items = p.activity_feed || [];
+        if (items.length === 0) {
+            feed.innerHTML = '<p class="text-muted" style="text-align:center;">No activity yet.</p>';
+            return;
+        }
+        feed.innerHTML = items.slice(0, 12).map(a => {
+            const label = formatAction(a.action);
+            const timeStr = a.created_at ? timeAgo(new Date(a.created_at)) : '';
+            return `
+                <div class="activity-item">
+                    <span class="activity-xp">+${a.xp_earned}</span>
+                    <span class="activity-action">${label}</span>
+                    <span class="activity-time">${timeStr}</span>
+                </div>`;
+        }).join('');
+    }
+
+    /* ── Helpers ─────────────────────────────────── */
+
+    function formatAction(action) {
+        const map = {
+            daily_login: '☀️ Daily check-in',
+            review_budget: '📊 Reviewed budget',
+            under_budget_category: '💰 Under budget',
+            upload_statement: '📄 Uploaded statement',
+            challenge_complete_weekly: '⚔️ Weekly challenge done',
+            challenge_complete_monthly: '🏆 Monthly challenge done',
+            streak_7: '🔥 7-day streak bonus',
+            streak_30: '⚡ 30-day streak bonus',
+            streak_60: '🏅 60-day streak bonus',
+            set_budget: '💰 Set a budget',
+            set_goal: '🎯 Set a goal',
+            review_planner: '📋 Reviewed planner',
+            first_login: '👋 First login',
+        };
+        return map[action] || action.replace(/_/g, ' ');
+    }
+
+    function timeAgo(d) {
+        const diff = (Date.now() - d.getTime()) / 1000;
+        if (diff < 60) return 'now';
+        if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+        if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+        return `${Math.floor(diff/86400)}d ago`;
+    }
+
+    function showToast(msg) {
+        const el = document.createElement('div');
+        el.className = 'level-up-toast';
+        el.textContent = msg;
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 4000);
+    }
+
+    /* ── Events ──────────────────────────────────── */
+
+    document.getElementById('btn-refresh').addEventListener('click', async () => {
+        const btn = document.getElementById('btn-refresh');
+        btn.disabled = true;
+        btn.textContent = '⏳ Generating…';
+        try {
+            await apiRefreshChallenges();
+            await loadHub();
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '🔄 New Challenges';
+        }
+    });
+
+    document.getElementById('avatar').addEventListener('click', () => {
+        const modal = document.getElementById('avatar-modal');
+        const opts = document.getElementById('avatar-options');
+        opts.innerHTML = AVATARS.map(e =>
+            `<span style="cursor:pointer;font-size:2.4rem;padding:0.3rem;" onclick="selectAvatar('${e}')">${e}</span>`
+        ).join('');
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+    });
+
+    window.selectAvatar = async function(emoji) {
+        try {
+            await apiUpdateAvatar(emoji);
+            document.getElementById('avatar').textContent = emoji;
+        } catch(e) { console.error(e); }
+        document.getElementById('avatar-modal').classList.add('hidden');
+        document.getElementById('avatar-modal').style.display = 'none';
+    };
+
+    // Initial load
+    loadHub();
+})();
+</script>
+</body>
+</html>

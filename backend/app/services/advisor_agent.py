@@ -29,6 +29,19 @@ from sqlalchemy import select, func, and_, update, delete
 
 from app.models import Transaction, Budget, Goal, FinancialPlan, Account
 from app.services import analytics, recurring_detection
+from app.services.predictive_engine import (
+    cash_flow_forecast, budget_burn_rate, goal_predictions,
+    spending_velocity, monthly_review,
+)
+from app.services.planning_engine import (
+    calc_amortization_payment, compare_strategies, retirement_projection,
+    run_scenario,
+)
+from app.services.smart_budget_engine import (
+    generate_smart_budgets, apply_smart_budgets, weekly_tune,
+)
+from app.services import gamification_engine
+from app.services.flashcard_engine import seed_decks_if_needed, get_user_stats
 
 logger = logging.getLogger(__name__)
 
@@ -59,44 +72,97 @@ def _get_genai():
 
 # ─── System Prompt ──────────────────────────────────────────────
 
-AGENT_SYSTEM_PROMPT = """You are the 'Financial Intelligence Agent', an expert AI financial advisor with FULL access to the user's financial data and the ability to modify their budgets, goals, and financial plan.
+AGENT_SYSTEM_PROMPT = """You are a friendly, plain-speaking financial advisor called the 'Financial Intelligence Agent'. You have FULL access to the user's financial data and can make changes on their behalf.
 
-You have CONVERSATION MEMORY — you can see the full history of previous messages in this chat session. Reference previous answers and build on them naturally, like a real advisor.
+Think of yourself as a helpful money coach who explains things in simple, everyday language — no jargon. If you must use a financial term, briefly explain what it means in parentheses.
 
-CAPABILITIES:
-- READ: transactions, budgets, goals, planner, recurring payments, anomalies, category breakdowns, monthly trends, merchant rankings
-- READ: bank/account data — transaction counts per institution, fee breakdowns by bank, income/expense per bank
-- READ: savings overview, net worth, rental properties, assets, loans from the planner
-- WRITE: create/update/delete budgets, create/update/delete goals, update planner sections, update transaction categories, bulk-assign planner categories
+You have CONVERSATION MEMORY — you can see everything discussed earlier in this chat. Build on previous answers naturally, like chatting with a real person.
 
-CROSS-DATA ANALYSIS:
-You can and SHOULD combine data from multiple sources to answer questions. For example:
-- Combine account data + transactions to show fees by bank
-- Combine planner + budgets + transactions for complete financial picture
-- Combine savings goals + planner savings + transaction trends for projection
-- Use rental property data from planner + CIBC transactions for rental analysis
-- Use accounts summary + transaction counts to recommend consolidation
+WHAT YOU CAN DO:
+📊 LOOK UP DATA:
+- Bank transactions (search, filter, browse)
+- Monthly spending breakdowns by category
+- Top merchants where money goes
+- Monthly income & expense trends
+- Recurring bills & subscriptions
+- Unusual spending (anomalies)
+- Bank/account summaries
+- Budgets, savings goals, and the full financial plan
+- Net worth, assets, loans, rental properties
 
-RULES:
-1. ALWAYS use tools to look up real data before answering — never guess or assume numbers.
-2. Call multiple tools as needed to gather comprehensive context.
-3. When the user asks you to CHANGE something (budget, goal, planner), USE the write tools to actually make the change — then confirm what you did.
-4. Be specific: use exact dollar amounts, percentages, dates, and category names from the data.
-5. Prioritize high-impact recommendations backed by data.
-6. Format responses with clear headings, bullet points, and tables where appropriate.
-7. When suggesting savings, reference specific categories and amounts.
-8. For bulk operations, explain what will change before executing.
-9. Use Canadian dollar formatting (CAD).
-10. Keep responses concise but thorough — quality over length.
-11. If a write operation fails, report the error clearly.
-12. When asked about bank fees, service charges, or account costs, use get_accounts_summary and get_transactions to find fee-related transactions grouped by institution.
-13. When asked about net worth, pull data from the planner (assets, loans, savings, rental properties) and combine with transaction data.
+🔮 PREDICTIONS & ANALYSIS:
+- Cash flow forecast (predict next 30/60/90 days)
+- Budget burn rate (are you on track to overspend this month?)
+- Goal predictions (when will you hit your savings targets?)
+- Spending velocity (are you spending faster than usual?)
+- Monthly financial health review with a score out of 100
+
+📐 PLANNING TOOLS:
+- What-if scenarios (what happens if income goes up, expenses go down, etc.)
+- Loan payment calculator (figure out monthly payments based on amount, rate, and years)
+- Debt payoff comparison (avalanche vs snowball — which saves more)
+- Retirement projections with FIRE numbers
+
+💰 SMART BUDGETS:
+- AI-powered budget recommendations based on spending history
+- Apply recommended budgets automatically
+- Mid-month budget tune-ups (adjust if you're off track)
+
+✏️ MAKE CHANGES:
+- Create, update, or delete budgets
+- Create, update, or delete savings goals
+- Update the financial plan
+- Re-categorize transactions
+- Auto-tag all transactions with planner categories
+- Set up a complete financial plan from scratch
+
+🏆 GAMIFICATION:
+- Check XP, level, streak, and active challenges
+- View achievements and activity log
+
+📚 FLASHCARDS:
+- Browse financial literacy decks
+- Check study progress and stats
+
+HOW YOU TALK:
+1. Use simple, everyday language. Instead of "amortization schedule", say "your payment plan over time". Instead of "net cash flow", say "what's left after bills".
+2. ALWAYS look up real numbers before answering — never guess.
+3. When showing data, use **tables** to make numbers easy to compare. Example:
+   | Category | Amount | % of Income |
+   |----------|--------|-------------|
+   | Rent | $2,000 | 30% |
+4. Use **bold** for important numbers and names.
+5. Use ### headings to organize your answer.
+6. Keep it conversational — like talking to a friend who happens to be great with money.
+7. When you make changes, list them clearly with ✅.
+8. Round dollar amounts to the nearest dollar for readability (e.g. $4,113 not $4,113.16).
+9. Use Canadian dollars ($).
+10. If something might be confusing, explain it with a simple analogy.
+11. When the user asks "why" or "how", give a clear cause-and-effect explanation.
+12. Don't list every single transaction — summarize and highlight what matters.
+13. If you're not sure what the user means, ask a quick clarifying question.
+14. For bulk operations, explain what will change BEFORE doing it.
+15. NEVER tell the user to "go to another page" — handle everything right here in the chat.
+
+GUIDED SETUP:
+When a user asks you to set up their finances or plan:
+1. Call auto_populate_planner first to pull numbers from their transactions.
+2. Show the results in a clear table and ask "Does this look right?"
+3. Ask targeted questions about things transactions can't tell you:
+   - How much do you have saved right now?
+   - Any loans? What's the balance, interest rate, and payment?
+   - Do you own a home or car? What's it worth?
+   - How much do you want to save each month?
+4. Confirm before saving: "Here's what I'll save — look good?"
+5. After saving, offer to set up budgets and goals too.
+6. Ask ONE set of questions at a time — don't overwhelm them.
 
 RESPONSE FORMAT:
-- Use **bold** for key numbers and category names
+- Use **bold** for key numbers
 - Use ### headings for sections
+- Use tables for comparing data (always use markdown table format)
 - Use bullet points for lists
-- When you make changes, include a "✅ Actions Taken" section summarizing modifications
+- After making changes: "✅ Done! Here's what I did: ..."
 """
 
 
@@ -474,6 +540,363 @@ FUNCTION_DECLARATIONS = [
             },
         },
     },
+    {
+        "name": "auto_populate_planner",
+        "description": "Analyze the user's transaction history and auto-generate a financial plan with income sources, needs, wants, bills, subscriptions, insurance, and savings amounts. Returns suggested plan_data that can be reviewed with the user before saving. Use this as the FIRST step when setting up a user's financial plan.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "month": {
+                    "type": "STRING",
+                    "description": "Optional: specific month YYYY-MM to analyze. If omitted, uses monthly averages across all data.",
+                },
+            },
+        },
+    },
+    {
+        "name": "save_full_plan",
+        "description": "Save the complete financial plan at once. Use this after building/confirming the plan with the user. Provide the FULL plan_data JSON with all sections: income, needs, wants, bills, subscriptions, insurance, savings, loans, assets, rental_properties.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "plan_data": {
+                    "type": "STRING",
+                    "description": "JSON string of the complete plan_data object with all sections.",
+                },
+            },
+            "required": ["plan_data"],
+        },
+    },
+    # ─── Predictive Engine Tools ────────────────────────────────
+    {
+        "name": "get_cash_flow_forecast",
+        "description": "Predict money coming in and going out for the next 30, 60, and 90 days based on spending history and recurring payments.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "horizon_days": {
+                    "type": "NUMBER",
+                    "description": "How many days ahead to forecast (default 90)",
+                },
+            },
+        },
+    },
+    {
+        "name": "get_budget_burn_rate",
+        "description": "Check if the user is on track with their budgets this month. Shows how fast they're spending in each category and whether they'll go over.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "month": {
+                    "type": "STRING",
+                    "description": "Month to check in YYYY-MM format (default: current month)",
+                },
+            },
+        },
+    },
+    {
+        "name": "get_goal_predictions",
+        "description": "Predict when the user will reach their savings goals based on current saving pace. Shows probability and estimated completion date for each goal.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {},
+        },
+    },
+    {
+        "name": "get_spending_velocity",
+        "description": "Check if the user is spending faster or slower than usual this month, both overall and by category.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {},
+        },
+    },
+    {
+        "name": "get_monthly_review",
+        "description": "Get a comprehensive monthly financial health report with a score out of 100, grade (A-F), spending analysis, budget adherence, goal progress, and action items.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "month": {
+                    "type": "STRING",
+                    "description": "Month to review in YYYY-MM format (default: current month)",
+                },
+            },
+        },
+    },
+    # ─── Planning Suite Tools ───────────────────────────────────
+    {
+        "name": "run_what_if_scenario",
+        "description": "Run a what-if scenario: 'What happens to my finances if I increase income by X%, cut expenses, pay extra on debt, etc.?' Shows projected net worth, savings, and debt over time.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "base_income": {
+                    "type": "NUMBER",
+                    "description": "Current monthly income",
+                },
+                "base_expenses": {
+                    "type": "NUMBER",
+                    "description": "Current monthly expenses",
+                },
+                "base_savings": {
+                    "type": "NUMBER",
+                    "description": "Current monthly savings amount",
+                },
+                "monthly_debt_payment": {
+                    "type": "NUMBER",
+                    "description": "Current total monthly debt payments",
+                },
+                "total_debt": {
+                    "type": "NUMBER",
+                    "description": "Total outstanding debt balance",
+                },
+                "avg_debt_rate": {
+                    "type": "NUMBER",
+                    "description": "Average interest rate on debt (e.g. 5.0 for 5%)",
+                },
+                "current_savings_balance": {
+                    "type": "NUMBER",
+                    "description": "Current total savings balance",
+                },
+                "current_investments": {
+                    "type": "NUMBER",
+                    "description": "Current investment portfolio value",
+                },
+                "income_change_pct": {
+                    "type": "NUMBER",
+                    "description": "Percentage change in income (e.g. 10 for +10%, -5 for -5%)",
+                },
+                "expense_change_pct": {
+                    "type": "NUMBER",
+                    "description": "Percentage change in expenses",
+                },
+                "extra_debt_payment": {
+                    "type": "NUMBER",
+                    "description": "Extra monthly debt payment on top of minimums",
+                },
+                "extra_savings": {
+                    "type": "NUMBER",
+                    "description": "Extra monthly savings contribution",
+                },
+                "months": {
+                    "type": "NUMBER",
+                    "description": "How many months to project (default 60)",
+                },
+            },
+            "required": ["base_income", "base_expenses", "base_savings", "monthly_debt_payment", "total_debt", "avg_debt_rate", "current_savings_balance", "current_investments"],
+        },
+    },
+    {
+        "name": "calc_loan_payment",
+        "description": "Calculate the monthly payment for a loan given the balance, annual interest rate, and number of years.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "balance": {
+                    "type": "NUMBER",
+                    "description": "Loan balance (principal amount)",
+                },
+                "annual_rate": {
+                    "type": "NUMBER",
+                    "description": "Annual interest rate as percentage (e.g. 5.5 for 5.5%)",
+                },
+                "amort_years": {
+                    "type": "NUMBER",
+                    "description": "Loan term in years (e.g. 25 for a 25-year mortgage)",
+                },
+            },
+            "required": ["balance", "annual_rate", "amort_years"],
+        },
+    },
+    {
+        "name": "compare_debt_strategies",
+        "description": "Compare avalanche vs snowball debt payoff strategies. Shows which saves more interest, which pays off faster, and recommends the best approach.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "debts": {
+                    "type": "STRING",
+                    "description": "JSON array of debts: [{\"name\": \"Mortgage\", \"balance\": 500000, \"rate\": 4.5, \"minimum\": 2500}, ...]",
+                },
+                "extra_monthly": {
+                    "type": "NUMBER",
+                    "description": "Extra amount per month to throw at debt beyond minimums (default 0)",
+                },
+            },
+            "required": ["debts"],
+        },
+    },
+    {
+        "name": "run_retirement_projection",
+        "description": "Project retirement readiness. Calculates how much the user will have at retirement, whether it will last, and FIRE numbers. Canadian context with CPP/OAS.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "current_age": {
+                    "type": "NUMBER",
+                    "description": "User's current age",
+                },
+                "retirement_age": {
+                    "type": "NUMBER",
+                    "description": "Planned retirement age",
+                },
+                "current_savings": {
+                    "type": "NUMBER",
+                    "description": "Current total savings",
+                },
+                "current_investments": {
+                    "type": "NUMBER",
+                    "description": "Current investment portfolio value",
+                },
+                "monthly_contribution": {
+                    "type": "NUMBER",
+                    "description": "Monthly amount being saved/invested for retirement",
+                },
+                "annual_return_pct": {
+                    "type": "NUMBER",
+                    "description": "Expected annual investment return percentage (default 7)",
+                },
+                "desired_annual_income": {
+                    "type": "NUMBER",
+                    "description": "Desired annual income in retirement (default 50000)",
+                },
+                "cpp_monthly": {
+                    "type": "NUMBER",
+                    "description": "Expected monthly CPP benefit (default 800)",
+                },
+                "oas_monthly": {
+                    "type": "NUMBER",
+                    "description": "Expected monthly OAS benefit (default 700)",
+                },
+                "life_expectancy": {
+                    "type": "NUMBER",
+                    "description": "Life expectancy age (default 90)",
+                },
+            },
+            "required": ["current_age", "retirement_age", "current_savings", "current_investments", "monthly_contribution"],
+        },
+    },
+    # ─── Smart Budget Tools ─────────────────────────────────────
+    {
+        "name": "get_smart_budget_recommendations",
+        "description": "Get AI-powered budget recommendations based on spending history. Uses the 50/30/20 rule (needs/wants/savings) and analyzes spending trends to suggest ideal budget limits per category.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {},
+        },
+    },
+    {
+        "name": "apply_smart_budgets_tool",
+        "description": "Apply the AI-recommended budget limits for a given month. Creates or updates budget entries for each recommended category.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "month": {
+                    "type": "STRING",
+                    "description": "Month to apply budgets for in YYYY-MM format",
+                },
+                "recommendations": {
+                    "type": "STRING",
+                    "description": "JSON array of recommendations from get_smart_budget_recommendations: [{\"category\": \"Groceries\", \"recommended_limit\": 400}, ...]",
+                },
+            },
+            "required": ["month", "recommendations"],
+        },
+    },
+    {
+        "name": "run_weekly_tune",
+        "description": "Mid-month budget check-up. Looks at spending pace and rebalances budgets — moves money from underspent categories to ones running hot. Only works after 25% of the month has passed.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {},
+        },
+    },
+    # ─── Gamification Tools ─────────────────────────────────────
+    {
+        "name": "get_gamification_profile",
+        "description": "Get the user's gamification profile: XP points, current level, daily streak, active challenges, and recent achievements.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {},
+        },
+    },
+    {
+        "name": "get_achievements",
+        "description": "Get all available achievements/badges and whether the user has unlocked each one.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {},
+        },
+    },
+    # ─── Flashcard Tools ────────────────────────────────────────
+    {
+        "name": "get_flashcard_decks",
+        "description": "List all financial literacy flashcard decks with the user's study progress (cards studied, mastered, due for review).",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {},
+        },
+    },
+    {
+        "name": "get_flashcard_stats",
+        "description": "Get comprehensive flashcard study statistics across all decks.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {},
+        },
+    },
+    # ─── Planner Comparison Tools ───────────────────────────────
+    {
+        "name": "get_monthly_comparison",
+        "description": "Compare finances month-over-month. Shows income, expenses, needs, wants, savings, and how each changed from the previous month.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {},
+        },
+    },
+    {
+        "name": "get_available_months",
+        "description": "Get a list of all months that have transaction data, with counts and totals for each month.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {},
+        },
+    },
+    # ─── Manual Transaction Tool ────────────────────────────────
+    {
+        "name": "create_manual_transaction",
+        "description": "Create a manual transaction entry (e.g. cash purchase, e-transfer, payment not captured by bank). Specify date, description, amount, and direction (in/out).",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "date": {
+                    "type": "STRING",
+                    "description": "Transaction date in YYYY-MM-DD format",
+                },
+                "description": {
+                    "type": "STRING",
+                    "description": "Description of the transaction",
+                },
+                "amount": {
+                    "type": "NUMBER",
+                    "description": "Transaction amount (positive number)",
+                },
+                "direction": {
+                    "type": "STRING",
+                    "description": "Money direction: 'in' for income/deposit, 'out' for expense/payment",
+                },
+                "category": {
+                    "type": "STRING",
+                    "description": "Category (default: Other)",
+                },
+                "account_type": {
+                    "type": "STRING",
+                    "description": "Account type: 'checking' or 'credit' (default: checking)",
+                },
+            },
+            "required": ["date", "description", "amount", "direction"],
+        },
+    },
 ]
 
 # Write tool names (for tracking actions)
@@ -482,6 +905,8 @@ WRITE_TOOLS = {
     "create_goal", "update_goal", "delete_goal",
     "update_planner_section", "update_transaction_category",
     "bulk_assign_planner_categories", "create_budgets_from_spending",
+    "save_full_plan", "apply_smart_budgets_tool", "run_weekly_tune",
+    "create_manual_transaction",
 }
 
 
@@ -1308,6 +1733,644 @@ async def tool_create_budgets_from_spending(
 
 # ─── Tool Dispatch ──────────────────────────────────────────────
 
+async def tool_auto_populate_planner(
+    user_id: str, db: AsyncSession, args: Dict,
+) -> Dict[str, Any]:
+    """Auto-populate plan from transaction data — same logic as /planner/auto-populate."""
+    import calendar
+    from collections import defaultdict
+    from sqlalchemy import case, extract
+
+    month_param = args.get("month")
+    month_start = month_end = None
+    if month_param:
+        try:
+            year, mon = int(month_param[:4]), int(month_param[5:7])
+            month_start = date(year, mon, 1)
+            last_day = calendar.monthrange(year, mon)[1]
+            month_end = date(year, mon, last_day)
+        except Exception:
+            pass
+
+    base_filter = [
+        Transaction.user_id == user_id,
+        Transaction.is_duplicate == False,
+        Transaction.is_transfer == False,
+    ]
+    if month_start:
+        base_filter.append(Transaction.date >= month_start)
+        base_filter.append(Transaction.date <= month_end)
+
+    # Date range
+    range_result = await db.execute(
+        select(func.min(Transaction.date), func.max(Transaction.date)).where(*base_filter)
+    )
+    date_range = range_result.one_or_none()
+    if not date_range or not date_range[0]:
+        return {"status": "no_data", "message": "No transactions found. Upload bank statements first."}
+
+    min_date, max_date = date_range
+    if month_start:
+        divisor = 1
+        months_analyzed = 1
+    else:
+        divisor = max(1, (max_date.year - min_date.year) * 12 + (max_date.month - min_date.month) + 1)
+        months_analyzed = divisor
+
+    net_expense = func.sum(case(
+        (Transaction.direction == "out", Transaction.amount),
+        else_=-Transaction.amount,
+    ))
+
+    # Category-level aggregates
+    cat_result = await db.execute(
+        select(
+            Transaction.planner_category,
+            Transaction.category,
+            net_expense.label("net_amount"),
+            func.count(Transaction.id),
+        ).where(
+            *base_filter,
+            Transaction.planner_category.isnot(None),
+            Transaction.planner_category != "Transfer",
+            Transaction.planner_category != "Ignore",
+            Transaction.category.notin_(["Other", "Unknown", "Income"]),
+        ).group_by(Transaction.planner_category, Transaction.category)
+    )
+    cat_rows = cat_result.all()
+
+    # Merchant-level for Other/Unknown expenses
+    other_result = await db.execute(
+        select(
+            Transaction.planner_category,
+            Transaction.merchant_clean,
+            func.sum(Transaction.amount),
+            func.count(Transaction.id),
+        ).where(
+            *base_filter,
+            Transaction.planner_category.isnot(None),
+            Transaction.planner_category != "Transfer",
+            Transaction.planner_category != "Ignore",
+            Transaction.category.in_(["Other", "Unknown"]),
+            Transaction.direction == "out",
+        ).group_by(Transaction.planner_category, Transaction.merchant_clean)
+    )
+    other_rows = other_result.all()
+
+    # Income by merchant
+    income_result = await db.execute(
+        select(
+            Transaction.merchant_clean,
+            func.sum(Transaction.amount),
+            func.count(Transaction.id),
+        ).where(
+            *base_filter,
+            Transaction.category == "Income",
+            Transaction.direction == "in",
+        ).group_by(Transaction.merchant_clean)
+    )
+    income_rows = income_result.all()
+
+    # Build sections
+    KEY_MAP = {
+        "needs": "needs", "wants": "wants", "bills": "bills",
+        "subscriptions": "subscriptions", "insurance": "insurance",
+        "savings": "savings_items",
+    }
+    sections = defaultdict(list)
+
+    for merchant, total, count in income_rows:
+        monthly_avg = round(float(total) / divisor)
+        if monthly_avg == 0:
+            continue
+        sections["income"].append({"name": merchant or "Income", "amount": monthly_avg})
+
+    for planner_cat, txn_cat, net_amount, count in cat_rows:
+        monthly_avg = round(float(net_amount) / divisor)
+        if monthly_avg <= 0:
+            continue
+        key = KEY_MAP.get((planner_cat or "wants").lower(), "wants")
+        sections[key].append({"name": txn_cat, "amount": monthly_avg})
+
+    for planner_cat, merchant, total, count in other_rows:
+        monthly_avg = round(float(total) / divisor)
+        if monthly_avg == 0:
+            continue
+        key = KEY_MAP.get((planner_cat or "wants").lower(), "wants")
+        sections[key].append({"name": merchant or "Other", "amount": monthly_avg})
+
+    savings_total = sum(item["amount"] for item in sections.get("savings_items", []))
+
+    for key in sections:
+        sections[key].sort(key=lambda x: x["amount"], reverse=True)
+
+    # Get existing plan for loans/assets/savings that transactions can't tell us
+    plan_result = await db.execute(
+        select(FinancialPlan).where(FinancialPlan.user_id == user_id)
+    )
+    existing_plan = plan_result.scalar_one_or_none()
+    existing_data = existing_plan.plan_data if existing_plan else {}
+
+    plan_data = {
+        "income": [{"name": i["name"], "amount": i["amount"]} for i in sections.get("income", [])],
+        "needs": [{"name": n["name"], "amount": n["amount"]} for n in sections.get("needs", [])],
+        "wants": [{"name": w["name"], "amount": w["amount"]} for w in sections.get("wants", [])],
+        "bills": [{"name": b["name"], "amount": b["amount"]} for b in sections.get("bills", [])],
+        "subscriptions": [{"name": s["name"], "amount": s["amount"]} for s in sections.get("subscriptions", [])],
+        "insurance": [{"name": i["name"], "amount": i["amount"]} for i in sections.get("insurance", [])],
+        "savings": existing_data.get("savings", {
+            "current_savings": 0,
+            "monthly_savings": round(savings_total),
+            "emergency_target": 0,
+            "emergency_months": 4,
+            "goal_amount": 0,
+            "goal_date": "",
+        }),
+        "loans": existing_data.get("loans", []),
+        "assets": existing_data.get("assets", []),
+        "rental_properties": existing_data.get("rental_properties", []),
+    }
+
+    total_income = sum(i["amount"] for i in plan_data["income"])
+    total_expenses = (
+        sum(n["amount"] for n in plan_data["needs"])
+        + sum(w["amount"] for w in plan_data["wants"])
+        + sum(b["amount"] for b in plan_data["bills"])
+        + sum(s["amount"] for s in plan_data["subscriptions"])
+        + sum(i["amount"] for i in plan_data["insurance"])
+    )
+
+    return {
+        "status": "success",
+        "months_analyzed": months_analyzed,
+        "period": {"start": str(min_date), "end": str(max_date)},
+        "plan_data": plan_data,
+        "summary": {
+            "total_income": total_income,
+            "total_expenses": total_expenses,
+            "net_cash_flow": total_income - total_expenses,
+            "income_sources": len(plan_data["income"]),
+            "expense_items": (
+                len(plan_data["needs"]) + len(plan_data["wants"])
+                + len(plan_data["bills"]) + len(plan_data["subscriptions"])
+                + len(plan_data["insurance"])
+            ),
+        },
+        "needs_user_input": [
+            "current_savings (savings balance)",
+            "emergency_target (emergency fund target)",
+            "loans (name, balance, interest rate for each)",
+            "assets (name, market value, loan remaining)",
+            "monthly_savings (how much you want to save each month)",
+        ],
+    }
+
+
+async def tool_save_full_plan(
+    user_id: str, db: AsyncSession, args: Dict,
+) -> Dict[str, Any]:
+    """Save the complete financial plan."""
+    try:
+        raw = args.get("plan_data", "{}")
+        plan_data = json.loads(raw) if isinstance(raw, str) else raw
+    except json.JSONDecodeError as e:
+        return {"status": "error", "message": f"Invalid JSON: {e}"}
+
+    if not isinstance(plan_data, dict):
+        return {"status": "error", "message": "plan_data must be a JSON object"}
+
+    # Validate required sections exist
+    from app.routes.planner import DEFAULT_PLAN
+    for key in DEFAULT_PLAN:
+        if key not in plan_data:
+            plan_data[key] = DEFAULT_PLAN[key]
+
+    result = await db.execute(
+        select(FinancialPlan).where(FinancialPlan.user_id == user_id)
+    )
+    plan = result.scalar_one_or_none()
+
+    if plan:
+        plan.plan_data = plan_data
+        plan.updated_at = datetime.utcnow()
+    else:
+        plan = FinancialPlan(user_id=user_id, plan_data=plan_data)
+        db.add(plan)
+
+    await db.flush()
+    await db.refresh(plan)
+
+    total_income = sum(i.get("amount", 0) for i in plan_data.get("income", []))
+    total_expenses = sum(
+        sum(item.get("amount", 0) for item in plan_data.get(section, []))
+        for section in ["needs", "wants", "bills", "subscriptions", "insurance"]
+    )
+
+    return {
+        "status": "saved",
+        "plan_id": plan.id,
+        "sections_saved": list(plan_data.keys()),
+        "summary": {
+            "total_income": total_income,
+            "total_expenses": total_expenses,
+            "loans_count": len(plan_data.get("loans", [])),
+            "assets_count": len(plan_data.get("assets", [])),
+            "savings": plan_data.get("savings", {}),
+        },
+    }
+
+
+# ─── Predictive Engine Tool Implementations ─────────────────────
+
+async def tool_get_cash_flow_forecast(
+    user_id: str, db: AsyncSession, args: Dict,
+) -> Dict[str, Any]:
+    horizon = int(args.get("horizon_days", 90))
+    result = await cash_flow_forecast(user_id, db, horizon_days=horizon)
+    # Convert Decimals
+    return json.loads(json.dumps(result, default=str))
+
+
+async def tool_get_budget_burn_rate(
+    user_id: str, db: AsyncSession, args: Dict,
+) -> Dict[str, Any]:
+    month = args.get("month")
+    result = await budget_burn_rate(user_id, db, month=month)
+    return json.loads(json.dumps(result, default=str))
+
+
+async def tool_get_goal_predictions(
+    user_id: str, db: AsyncSession, args: Dict,
+) -> Dict[str, Any]:
+    result = await goal_predictions(user_id, db)
+    return json.loads(json.dumps(result, default=str))
+
+
+async def tool_get_spending_velocity(
+    user_id: str, db: AsyncSession, args: Dict,
+) -> Dict[str, Any]:
+    result = await spending_velocity(user_id, db)
+    return json.loads(json.dumps(result, default=str))
+
+
+async def tool_get_monthly_review(
+    user_id: str, db: AsyncSession, args: Dict,
+) -> Dict[str, Any]:
+    month = args.get("month")
+    result = await monthly_review(user_id, db, month=month)
+    return json.loads(json.dumps(result, default=str))
+
+
+# ─── Planning Suite Tool Implementations ────────────────────────
+
+async def tool_run_what_if_scenario(
+    user_id: str, db: AsyncSession, args: Dict,
+) -> Dict[str, Any]:
+    adjustments = {
+        "income_change_pct": float(args.get("income_change_pct", 0)),
+        "expense_change_pct": float(args.get("expense_change_pct", 0)),
+        "extra_debt_payment": float(args.get("extra_debt_payment", 0)),
+        "extra_savings": float(args.get("extra_savings", 0)),
+    }
+    months = int(args.get("months", 60))
+    result = run_scenario(
+        base_income=float(args["base_income"]),
+        base_expenses=float(args["base_expenses"]),
+        base_savings=float(args["base_savings"]),
+        monthly_debt_payment=float(args["monthly_debt_payment"]),
+        total_debt=float(args["total_debt"]),
+        avg_debt_rate=float(args["avg_debt_rate"]),
+        current_savings_balance=float(args["current_savings_balance"]),
+        current_investments=float(args["current_investments"]),
+        adjustments=adjustments,
+        months=months,
+    )
+    return json.loads(json.dumps(result, default=str))
+
+
+async def tool_calc_loan_payment(
+    user_id: str, db: AsyncSession, args: Dict,
+) -> Dict[str, Any]:
+    balance = float(args["balance"])
+    annual_rate = float(args["annual_rate"])
+    amort_years = float(args["amort_years"])
+    payment = calc_amortization_payment(balance, annual_rate, amort_years)
+    total_paid = payment * amort_years * 12
+    total_interest = total_paid - balance if balance > 0 else 0
+    return {
+        "balance": balance,
+        "annual_rate": annual_rate,
+        "amort_years": amort_years,
+        "monthly_payment": round(payment, 2),
+        "total_paid": round(total_paid, 2),
+        "total_interest": round(total_interest, 2),
+    }
+
+
+async def tool_compare_debt_strategies(
+    user_id: str, db: AsyncSession, args: Dict,
+) -> Dict[str, Any]:
+    debts_raw = args.get("debts", "[]")
+    debts = json.loads(debts_raw) if isinstance(debts_raw, str) else debts_raw
+    extra = float(args.get("extra_monthly", 0))
+    result = compare_strategies(debts, extra_monthly=extra)
+    return json.loads(json.dumps(result, default=str))
+
+
+async def tool_run_retirement_projection(
+    user_id: str, db: AsyncSession, args: Dict,
+) -> Dict[str, Any]:
+    result = retirement_projection(
+        current_age=int(args["current_age"]),
+        retirement_age=int(args["retirement_age"]),
+        current_savings=float(args["current_savings"]),
+        current_investments=float(args["current_investments"]),
+        monthly_contribution=float(args["monthly_contribution"]),
+        annual_return_pct=float(args.get("annual_return_pct", 7.0)),
+        desired_annual_income=float(args.get("desired_annual_income", 50000)),
+        cpp_monthly=float(args.get("cpp_monthly", 800)),
+        oas_monthly=float(args.get("oas_monthly", 700)),
+        life_expectancy=int(args.get("life_expectancy", 90)),
+    )
+    return json.loads(json.dumps(result, default=str))
+
+
+# ─── Smart Budget Tool Implementations ──────────────────────────
+
+async def tool_get_smart_budget_recommendations(
+    user_id: str, db: AsyncSession, args: Dict,
+) -> Dict[str, Any]:
+    result = await generate_smart_budgets(user_id, db)
+    return json.loads(json.dumps(result, default=str))
+
+
+async def tool_apply_smart_budgets(
+    user_id: str, db: AsyncSession, args: Dict,
+) -> Dict[str, Any]:
+    month = args.get("month", datetime.now().strftime("%Y-%m"))
+    recs_raw = args.get("recommendations", "[]")
+    recs = json.loads(recs_raw) if isinstance(recs_raw, str) else recs_raw
+    result = await apply_smart_budgets(user_id, db, month=month, recommendations=recs)
+    return {"status": "applied", "month": month, "budgets": result}
+
+
+async def tool_run_weekly_tune(
+    user_id: str, db: AsyncSession, args: Dict,
+) -> Dict[str, Any]:
+    result = await weekly_tune(user_id, db)
+    return json.loads(json.dumps(result, default=str))
+
+
+# ─── Gamification Tool Implementations ──────────────────────────
+
+async def tool_get_gamification_profile(
+    user_id: str, db: AsyncSession, args: Dict,
+) -> Dict[str, Any]:
+    profile = await gamification_engine.get_full_profile(user_id, db)
+    return json.loads(json.dumps(profile, default=str))
+
+
+async def tool_get_achievements(
+    user_id: str, db: AsyncSession, args: Dict,
+) -> Dict[str, Any]:
+    from app.models import Achievement
+    result = await db.execute(
+        select(Achievement).where(Achievement.user_id == user_id)
+    )
+    unlocked = result.scalars().all()
+    unlocked_keys = {a.badge_key for a in unlocked}
+    return {
+        "all_badges": [
+            {
+                "key": d["key"],
+                "name": d["name"],
+                "icon": d["icon"],
+                "desc": d["desc"],
+                "unlocked": d["key"] in unlocked_keys,
+                "unlocked_at": next(
+                    (a.unlocked_at.isoformat() for a in unlocked if a.badge_key == d["key"]),
+                    None,
+                ),
+            }
+            for d in gamification_engine.ACHIEVEMENT_DEFS
+        ]
+    }
+
+
+# ─── Flashcard Tool Implementations ────────────────────────────
+
+async def tool_get_flashcard_decks(
+    user_id: str, db: AsyncSession, args: Dict,
+) -> Dict[str, Any]:
+    await seed_decks_if_needed(db)
+    stats = await get_user_stats(user_id, db)
+    return {
+        "decks": stats.get("decks", []),
+        "overall": {
+            "total_studied": stats.get("total_studied", 0),
+            "mastered": stats.get("mastered", 0),
+            "mastery_pct": stats.get("mastery_pct", 0),
+            "due_today": stats.get("due_today", 0),
+            "review_streak": stats.get("review_streak", 0),
+        },
+    }
+
+
+async def tool_get_flashcard_stats(
+    user_id: str, db: AsyncSession, args: Dict,
+) -> Dict[str, Any]:
+    await seed_decks_if_needed(db)
+    stats = await get_user_stats(user_id, db)
+    return json.loads(json.dumps(stats, default=str))
+
+
+# ─── Planner Comparison Tool Implementations ────────────────────
+
+async def tool_get_monthly_comparison(
+    user_id: str, db: AsyncSession, args: Dict,
+) -> Dict[str, Any]:
+    import calendar as cal
+    from sqlalchemy import case, extract
+
+    yr_col = extract("year", Transaction.date).label("yr")
+    mo_col = extract("month", Transaction.date).label("mo")
+    base_filter = [
+        Transaction.user_id == user_id,
+        Transaction.is_duplicate == False,
+        Transaction.is_transfer == False,
+    ]
+
+    # Income per month
+    income_result = await db.execute(
+        select(yr_col, mo_col, func.sum(Transaction.amount).label("total"))
+        .where(*base_filter, Transaction.category == "Income", Transaction.direction == "in")
+        .group_by("yr", "mo").order_by("yr", "mo")
+    )
+    income_by_month = {}
+    for yr, mo, total in income_result.all():
+        key = f"{int(yr):04d}-{int(mo):02d}"
+        income_by_month[key] = round(float(total or 0))
+
+    # Expenses per category-group per month
+    net_expense = func.sum(case(
+        (Transaction.direction == "out", Transaction.amount),
+        else_=-Transaction.amount,
+    ))
+    expense_result = await db.execute(
+        select(yr_col, mo_col, Transaction.planner_category, net_expense.label("net_amount"))
+        .where(
+            *base_filter,
+            Transaction.planner_category.isnot(None),
+            Transaction.planner_category != "Transfer",
+            Transaction.planner_category != "Ignore",
+            Transaction.category != "Income",
+        )
+        .group_by("yr", "mo", Transaction.planner_category)
+        .order_by("yr", "mo")
+    )
+    expense_rows = expense_result.all()
+
+    all_months = set(income_by_month.keys())
+    month_data = {}
+    for yr, mo, planner_cat, net_amount in expense_rows:
+        key = f"{int(yr):04d}-{int(mo):02d}"
+        all_months.add(key)
+        if key not in month_data:
+            month_data[key] = {}
+        section = (planner_cat or "Wants").lower()
+        if section not in ("needs", "wants", "bills", "subscriptions", "insurance", "savings"):
+            section = "wants"
+        month_data[key][section] = month_data[key].get(section, 0) + max(0, round(float(net_amount or 0)))
+
+    sorted_months = sorted(all_months)
+    comparison = []
+    for m in sorted_months:
+        exp = month_data.get(m, {})
+        inc = income_by_month.get(m, 0)
+        total_exp = sum(exp.values())
+        comparison.append({
+            "month": m,
+            "label": f"{cal.month_abbr[int(m[5:7])]} {m[:4]}",
+            "income": inc,
+            "needs": exp.get("needs", 0),
+            "wants": exp.get("wants", 0),
+            "bills": exp.get("bills", 0),
+            "subscriptions": exp.get("subscriptions", 0),
+            "insurance": exp.get("insurance", 0),
+            "savings": exp.get("savings", 0),
+            "total_expenses": total_exp,
+            "net": inc - total_exp,
+        })
+
+    for i in range(1, len(comparison)):
+        prev, curr = comparison[i - 1], comparison[i]
+        curr["changes"] = {
+            "income": curr["income"] - prev["income"],
+            "total_expenses": curr["total_expenses"] - prev["total_expenses"],
+            "net": curr["net"] - prev["net"],
+            "needs": curr["needs"] - prev["needs"],
+            "wants": curr["wants"] - prev["wants"],
+        }
+
+    return {"comparison": comparison, "months": sorted_months}
+
+
+async def tool_get_available_months(
+    user_id: str, db: AsyncSession, args: Dict,
+) -> Dict[str, Any]:
+    import calendar as cal
+    from sqlalchemy import case, extract
+
+    result = await db.execute(
+        select(
+            extract("year", Transaction.date).label("yr"),
+            extract("month", Transaction.date).label("mo"),
+            func.count(Transaction.id).label("cnt"),
+            func.sum(case(
+                (Transaction.direction == "in", Transaction.amount),
+                else_=0,
+            )).label("total_in"),
+            func.sum(case(
+                (Transaction.direction == "out", Transaction.amount),
+                else_=0,
+            )).label("total_out"),
+        )
+        .where(
+            Transaction.user_id == user_id,
+            Transaction.is_duplicate == False,
+            Transaction.is_transfer == False,
+        )
+        .group_by("yr", "mo")
+        .order_by("yr", "mo")
+    )
+    rows = result.all()
+    months = []
+    for yr, mo, cnt, total_in, total_out in rows:
+        label = f"{cal.month_abbr[int(mo)]} {int(yr)}"
+        months.append({
+            "value": f"{int(yr):04d}-{int(mo):02d}",
+            "label": label,
+            "txn_count": cnt,
+            "total_in": round(float(total_in or 0)),
+            "total_out": round(float(total_out or 0)),
+        })
+    return {"months": months}
+
+
+# ─── Manual Transaction Tool Implementation ─────────────────────
+
+async def tool_create_manual_transaction(
+    user_id: str, db: AsyncSession, args: Dict,
+) -> Dict[str, Any]:
+    from app.routes.planner import PLANNER_CATEGORY_MAP
+    txn_date = date.fromisoformat(args["date"])
+    description = args["description"]
+    amount = Decimal(str(args["amount"]))
+    direction = args["direction"]
+    category = args.get("category", "Other")
+    account_type = args.get("account_type", "checking")
+
+    # Auto-assign planner category
+    planner_category = PLANNER_CATEGORY_MAP.get(category, "Wants")
+    if category == "Income":
+        planner_category = "Income"
+
+    txn = Transaction(
+        user_id=user_id,
+        date=txn_date,
+        description=description,
+        amount=amount,
+        direction=direction,
+        category=category,
+        account_type=account_type,
+        planner_category=planner_category,
+        institution="Manual",
+        merchant_clean=description[:50],
+        is_duplicate=False,
+        is_transfer=False,
+    )
+    db.add(txn)
+    await db.flush()
+    await db.refresh(txn)
+
+    # Award gamification XP
+    try:
+        await gamification_engine.award_xp(user_id, db, "manual_transaction", f"Added: {description}")
+    except Exception:
+        pass
+
+    return {
+        "status": "created",
+        "transaction_id": str(txn.id),
+        "date": str(txn.date),
+        "description": txn.description,
+        "amount": str(txn.amount),
+        "direction": txn.direction,
+        "category": txn.category,
+        "planner_category": txn.planner_category,
+    }
+
+
 TOOL_HANDLERS = {
     "get_financial_overview": tool_get_financial_overview,
     "get_category_breakdown": tool_get_category_breakdown,
@@ -1333,6 +2396,34 @@ TOOL_HANDLERS = {
     "update_transaction_category": tool_update_transaction_category,
     "bulk_assign_planner_categories": tool_bulk_assign_planner_categories,
     "create_budgets_from_spending": tool_create_budgets_from_spending,
+    "auto_populate_planner": tool_auto_populate_planner,
+    "save_full_plan": tool_save_full_plan,
+    # Predictive Engine
+    "get_cash_flow_forecast": tool_get_cash_flow_forecast,
+    "get_budget_burn_rate": tool_get_budget_burn_rate,
+    "get_goal_predictions": tool_get_goal_predictions,
+    "get_spending_velocity": tool_get_spending_velocity,
+    "get_monthly_review": tool_get_monthly_review,
+    # Planning Suite
+    "run_what_if_scenario": tool_run_what_if_scenario,
+    "calc_loan_payment": tool_calc_loan_payment,
+    "compare_debt_strategies": tool_compare_debt_strategies,
+    "run_retirement_projection": tool_run_retirement_projection,
+    # Smart Budgets
+    "get_smart_budget_recommendations": tool_get_smart_budget_recommendations,
+    "apply_smart_budgets_tool": tool_apply_smart_budgets,
+    "run_weekly_tune": tool_run_weekly_tune,
+    # Gamification
+    "get_gamification_profile": tool_get_gamification_profile,
+    "get_achievements": tool_get_achievements,
+    # Flashcards
+    "get_flashcard_decks": tool_get_flashcard_decks,
+    "get_flashcard_stats": tool_get_flashcard_stats,
+    # Planner Comparison
+    "get_monthly_comparison": tool_get_monthly_comparison,
+    "get_available_months": tool_get_available_months,
+    # Manual Transaction
+    "create_manual_transaction": tool_create_manual_transaction,
 }
 
 

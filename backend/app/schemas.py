@@ -145,6 +145,17 @@ class AnomalyAlert(BaseModel):
     direction: str
 
 
+# ─── Manual Transaction ──────────────────────────────────────────
+
+class ManualTransactionCreate(BaseModel):
+    date: date
+    description: str = Field(..., min_length=1, max_length=500)
+    amount: Decimal = Field(..., gt=0)
+    direction: str = Field(..., pattern=r"^(in|out)$")
+    category: str = Field(default="Other", max_length=50)
+    account_type: str = Field(default="checking", pattern=r"^(checking|credit)$")
+
+
 # ─── Budget ──────────────────────────────────────────────────────
 
 class BudgetCreate(BaseModel):
