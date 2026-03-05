@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financial Planner — Financial Intelligence Engine</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="main-content">
+        <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;">
+            <div>
+                <h1>📋 Financial Planner</h1>
+                <p>Your complete monthly financial picture — income, expenses, savings, loans &amp; assets</p>
+            </div>
+            <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+                <select id="month-filter" class="form-control" style="min-width:180px;" onchange="onMonthFilterChange()">
+                    <option value="">All Time (Average)</option>
+                </select>
+                <button class="btn btn-secondary" id="btn-sync" onclick="syncFromTransactions()">🔄 Sync from Transactions</button>
+                <button class="btn btn-primary" id="btn-save" onclick="savePlan()">💾 Save Plan</button>
+            </div>
+        </div>
+
+        <div id="alert-container"></div>
+
+        <!-- Summary KPIs -->
+        <div class="kpi-grid" id="summary-kpi" style="margin-bottom:2rem;">
+            <div class="kpi-card">
+                <span class="kpi-label">Total Income</span>
+                <span class="kpi-value text-success" id="kpi-income">$0</span>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-label">Total Expenses</span>
+                <span class="kpi-value text-danger" id="kpi-expenses">$0</span>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-label">Monthly Savings</span>
+                <span class="kpi-value text-accent" id="kpi-savings">$0</span>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-label">Net Cash Flow</span>
+                <span class="kpi-value" id="kpi-net">$0</span>
+            </div>
+            <div class="kpi-card">
+                <span class="kpi-label">Net Worth</span>
+                <span class="kpi-value" id="kpi-networth">$0</span>
+            </div>
+        </div>
+
+        <!-- 50/30/20 Rule -->
+        <div class="card mb-3" id="rule-card">
+            <div class="card-header"><span class="card-title">50 / 30 / 20 Rule Analysis</span></div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:0.5rem;">
+                <div>
+                    <div class="text-muted text-xs" style="margin-bottom:0.3rem;">Needs (target ≤50%)</div>
+                    <div class="budget-bar-track"><div class="budget-bar-fill" id="bar-needs" style="width:0%;background:#22c55e;height:10px;border-radius:5px;"></div></div>
+                    <div class="text-sm font-mono" id="lbl-needs" style="margin-top:0.25rem;">0%</div>
+                </div>
+                <div>
+                    <div class="text-muted text-xs" style="margin-bottom:0.3rem;">Wants (target ≤30%)</div>
+                    <div class="budget-bar-track"><div class="budget-bar-fill" id="bar-wants" style="width:0%;background:#6366f1;height:10px;border-radius:5px;"></div></div>
+                    <div class="text-sm font-mono" id="lbl-wants" style="margin-top:0.25rem;">0%</div>
+                </div>
+                <div>
+                    <div class="text-muted text-xs" style="margin-bottom:0.3rem;">Savings (target ≥20%)</div>
+                    <div class="budget-bar-track"><div class="budget-bar-fill" id="bar-savings" style="width:0%;background:#f59e0b;height:10px;border-radius:5px;"></div></div>
+                    <div class="text-sm font-mono" id="lbl-savings" style="margin-top:0.25rem;">0%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="chart-grid" style="margin-bottom:2rem;">
+            <div class="chart-card">
+                <div class="card-header"><span class="card-title">Expense Breakdown</span></div>
+                <div style="height:260px;"><canvas id="chart-breakdown"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <div class="card-header"><span class="card-title">Income vs Expenses vs Savings</span></div>
+                <div style="height:260px;"><canvas id="chart-flow"></canvas></div>
+            </div>
+        </div>
+
+        <!-- ═══ Month-to-Month Comparison ═══ -->
+        <div class="card mb-3" id="comparison-section" style="margin-bottom:2rem;padding:1.25rem;">
+            <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                <span class="card-title">📈 Month-to-Month Trends</span>
+                <div style="display:flex;gap:0.5rem;">
+                    <button class="btn btn-sm" id="comp-btn-bar" onclick="setCompChartType('bar')" style="opacity:1;">Bar</button>
+                    <button class="btn btn-sm btn-secondary" id="comp-btn-line" onclick="setCompChartType('line')" style="opacity:0.6;">Line</button>
+                </div>
+            </div>
+            <div style="height:320px;margin-top:0.75rem;"><canvas id="chart-trends"></canvas></div>
+
+            <!-- Month-over-month change cards -->
+            <div id="mom-changes" style="margin-top:1.25rem;"></div>
+
+            <!-- Comparison table -->
+            <div style="overflow-x:auto;margin-top:1rem;">
+                <table class="comparison-table" id="comparison-table">
+                    <thead><tr id="comp-header"></tr></thead>
+                    <tbody id="comp-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Editable Sections Grid -->
+        <div class="planner-grid">
+
+            <!-- Income -->
+            <div class="card planner-section" id="section-income">
+                <div class="card-header">
+                    <span class="card-title">💵 Income</span>
+                    <button class="btn btn-sm btn-secondary" onclick="addRow('income')">+ Add</button>
+                </div>
+                <div class="section-rows" data-section="income"></div>
+                <div class="section-total">Total: <span class="font-mono" id="total-income">$0</span></div>
+            </div>
+
+            <!-- Needs -->
+            <div class="card planner-section" id="section-needs">
+                <div class="card-header">
+                    <span class="card-title">🏠 Needs (Fixed Expenses)</span>
+                    <button class="btn btn-sm btn-secondary" onclick="addRow('needs')">+ Add</button>
+                </div>
+                <div class="section-rows" data-section="needs"></div>
+                <div class="section-total">Total: <span class="font-mono" id="total-needs">$0</span></div>
+            </div>
+
+            <!-- Bills -->
+            <div class="card planner-section" id="section-bills">
+                <div class="card-header">
+                    <span class="card-title">📱 Bills</span>
+                    <button class="btn btn-sm btn-secondary" onclick="addRow('bills')">+ Add</button>
+                </div>
+                <div class="section-rows" data-section="bills"></div>
+                <div class="section-total">Total: <span class="font-mono" id="total-bills">$0</span></div>
+            </div>
+
+            <!-- Insurance -->
+            <div class="card planner-section" id="section-insurance">
+                <div class="card-header">
+                    <span class="card-title">🛡️ Insurance &amp; Tax</span>
+                    <button class="btn btn-sm btn-secondary" onclick="addRow('insurance')">+ Add</button>
+                </div>
+                <div class="section-rows" data-section="insurance"></div>
+                <div class="section-total">Total: <span class="font-mono" id="total-insurance">$0</span></div>
+            </div>
+
+            <!-- Wants -->
+            <div class="card planner-section" id="section-wants">
+                <div class="card-header">
+                    <span class="card-title">🎉 Wants (Discretionary)</span>
+                    <button class="btn btn-sm btn-secondary" onclick="addRow('wants')">+ Add</button>
+                </div>
+                <div class="section-rows" data-section="wants"></div>
+                <div class="section-total">Total: <span class="font-mono" id="total-wants">$0</span></div>
+            </div>
+
+            <!-- Subscriptions -->
+            <div class="card planner-section" id="section-subscriptions">
+                <div class="card-header">
+                    <span class="card-title">🔄 Subscriptions</span>
+                    <button class="btn btn-sm btn-secondary" onclick="addRow('subscriptions')">+ Add</button>
+                </div>
+                <div class="section-rows" data-section="subscriptions"></div>
+                <div class="section-total">Total: <span class="font-mono" id="total-subscriptions">$0</span></div>
+            </div>
+
+            <!-- Savings -->
+            <div class="card planner-section" id="section-savings">
+                <div class="card-header">
+                    <span class="card-title">🏦 Savings &amp; Emergency Fund</span>
+                </div>
+                <div class="savings-fields">
+                    <div class="field-row">
+                        <label>Current Savings</label>
+                        <input type="number" class="form-control" id="sav-current" min="0" step="100" value="0" onchange="recalcAll()">
+                    </div>
+                    <div class="field-row">
+                        <label>Monthly Savings Target</label>
+                        <input type="number" class="form-control" id="sav-monthly" min="0" step="100" value="0" onchange="recalcAll()">
+                    </div>
+                    <div class="field-row">
+                        <label>Emergency Fund Target</label>
+                        <input type="number" class="form-control" id="sav-emergency" min="0" step="100" value="0" onchange="recalcAll()">
+                    </div>
+                    <div class="field-row">
+                        <label>Emergency Months Coverage</label>
+                        <input type="number" class="form-control" id="sav-months" min="1" max="24" value="4" onchange="recalcAll()">
+                    </div>
+                    <div class="field-row">
+                        <label>Goal Amount</label>
+                        <input type="number" class="form-control" id="sav-goal" min="0" step="500" value="0" onchange="recalcAll()">
+                    </div>
+                    <div class="field-row">
+                        <label>Goal Date</label>
+                        <input type="date" class="form-control" id="sav-goaldate" onchange="recalcAll()">
+                    </div>
+                </div>
+                <div class="section-total" style="margin-top:0.75rem;">
+                    Remaining Savings: <span class="font-mono" id="sav-remaining">$0</span>
+                    <br>
+                    <span class="text-xs text-muted" id="sav-time-to-goal"></span>
+                </div>
+            </div>
+
+            <!-- Rental Properties -->
+            <div class="card planner-section" id="section-rental" style="grid-column: 1 / -1;">
+                <div class="card-header">
+                    <span class="card-title">🏘️ Rental Properties</span>
+                    <button class="btn btn-sm btn-secondary" onclick="addRentalRow()">+ Add</button>
+                </div>
+                <div class="text-xs text-muted" style="margin-bottom:0.5rem;display:grid;grid-template-columns:2fr 1.2fr 1fr 1fr 1fr 1fr 1fr auto;gap:0.4rem;padding:0 0.1rem;">
+                    <span>Name</span><span>Institution</span><span>Income/mo</span><span>Expenses/mo</span><span>Mortgage/mo</span><span>Mortgage Left</span><span>Market Value</span><span></span>
+                </div>
+                <div id="rental-rows"></div>
+                <div class="section-total" style="display:flex;flex-wrap:wrap;gap:1.5rem;">
+                    Net Rental Income: <span class="font-mono" id="total-rental-net">$0</span>
+                    <span>Total Mortgage: <span class="font-mono" id="total-rental-mortgage">$0</span></span>
+                    <span>Rental Equity: <span class="font-mono" id="total-rental-equity">$0</span></span>
+                </div>
+            </div>
+
+            <!-- Loans -->
+            <div class="card planner-section" id="section-loans">
+                <div class="card-header">
+                    <span class="card-title">💳 Loans &amp; Debt</span>
+                    <button class="btn btn-sm btn-secondary" onclick="addLoanRow()">+ Add</button>
+                </div>
+                <div id="loan-rows"></div>
+                <div class="section-total">Total Debt: <span class="font-mono" id="total-loans">$0</span></div>
+            </div>
+
+            <!-- Assets -->
+            <div class="card planner-section" id="section-assets">
+                <div class="card-header">
+                    <span class="card-title">🏡 Assets</span>
+                    <button class="btn btn-sm btn-secondary" onclick="addAssetRow()">+ Add</button>
+                </div>
+                <div id="asset-rows"></div>
+                <div class="section-total">
+                    Total Value: <span class="font-mono" id="total-asset-value">$0</span> &nbsp;|&nbsp;
+                    Equity: <span class="font-mono" id="total-equity">$0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .planner-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+        }
+        @media (max-width: 1024px) { .planner-grid { grid-template-columns: 1fr; } }
+
+        .planner-section { padding: 1.25rem; }
+
+        .section-rows { display: flex; flex-direction: column; gap: 0.4rem; }
+
+        .row-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.35rem 0;
+        }
+        .row-item input[type="text"] { flex: 2; }
+        .row-item input[type="number"] { flex: 1; min-width: 100px; }
+        .row-item .btn-remove {
+            background: none; border: none; color: var(--danger);
+            cursor: pointer; font-size: 1.1rem; padding: 0 0.3rem;
+            opacity: 0.6; transition: opacity 0.2s;
+        }
+        .row-item .btn-remove:hover { opacity: 1; }
+
+        .section-total {
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--border);
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+
+        .savings-fields { display: flex; flex-direction: column; gap: 0.6rem; }
+        .field-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .field-row label {
+            flex: 1;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+        .field-row input { flex: 1; }
+
+        .budget-bar-track { height:10px; background:var(--bg-input); border-radius:5px; overflow:hidden; }
+
+        .rental-row, .loan-row, .asset-row {
+            display: grid;
+            gap: 0.4rem;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .rental-row { grid-template-columns: 2fr 1.2fr 1fr 1fr 1fr 1fr 1fr auto; align-items: center; }
+        .loan-row { grid-template-columns: 2fr 1.5fr 1fr 1fr auto; align-items: center; }
+        .asset-row { grid-template-columns: 2fr 1fr 1fr auto; align-items: center; }
+
+        @media (max-width: 768px) {
+            .rental-row, .loan-row, .asset-row { grid-template-columns: 1fr 1fr; }
+        }
+
+        /* ─── Comparison section styles ─── */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.82rem;
+        }
+        .comparison-table th, .comparison-table td {
+            padding: 0.5rem 0.75rem;
+            text-align: right;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        .comparison-table th {
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .comparison-table th:first-child,
+        .comparison-table td:first-child { text-align: left; }
+        .comparison-table tr:hover td { background: var(--bg-card-hover); }
+
+        .mom-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 0.75rem;
+        }
+        .mom-card {
+            background: var(--bg-input);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            text-align: center;
+        }
+        .mom-card .mom-label {
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.25rem;
+        }
+        .mom-card .mom-value {
+            font-size: 1.15rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .mom-card .mom-change {
+            font-size: 0.78rem;
+            margin-top: 0.2rem;
+        }
+        .change-up { color: var(--success); }
+        .change-down { color: var(--danger); }
+        .change-neutral { color: var(--text-muted); }
+
+        .active-month-tab {
+            background: var(--accent) !important;
+            color: #fff !important;
+            opacity: 1 !important;
+        }
+    </style>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/navbar.js"></script>
+    <script>
+        let planData = {};
+        let breakdownChart = null;
+        let flowChart = null;
+        let trendsChart = null;
+        let compChartType = 'bar';
+        let comparisonData = [];
+        let selectedMonth = '';  // '' = all-time average
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!requireAuth()) return;
+            await Promise.all([loadAvailableMonths(), loadPlan(), loadComparison()]);
+        });
+
+        // ─── Load available months into filter ─────────────
+        async function loadAvailableMonths() {
+            try {
+                const result = await apiGetAvailableMonths();
+                const select = document.getElementById('month-filter');
+                (result.months || []).forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m.value;
+                    opt.textContent = `${m.label} (${m.txn_count} txns)`;
+                    select.appendChild(opt);
+                });
+            } catch (err) {
+                console.error('Failed to load months:', err);
+            }
+        }
+
+        function onMonthFilterChange() {
+            selectedMonth = document.getElementById('month-filter').value;
+            // Don't auto-sync, just update the label
+            const label = selectedMonth
+                ? document.getElementById('month-filter').selectedOptions[0].textContent
+                : 'All Time (Average)';
+            showAlert(document.getElementById('alert-container'),
+                `Viewing: ${label}. Click "Sync from Transactions" to load data for this period.`, 'info');
+        }
+
+        async function loadPlan() {
+            try {
+                const result = await apiGetPlan();
+                planData = result.plan_data || {};
+                renderAll();
+            } catch (err) {
+                showAlert(document.getElementById('alert-container'), err.message);
+            }
+        }
+
+        // ─── Load comparison data ──────────────────────────
+        async function loadComparison() {
+            try {
+                const result = await apiGetMonthlyComparison();
+                comparisonData = result.comparison || [];
+                renderComparison();
+            } catch (err) {
+                console.error('Failed to load comparison:', err);
+            }
+        }
+
+        // ─── Render all sections ───────────────────────────
+        function renderAll() {
+            ['income', 'needs', 'wants', 'bills', 'subscriptions', 'insurance'].forEach(renderSection);
+            renderSavings();
+            renderRentals();
+            renderLoans();
+            renderAssets();
+            recalcAll();
+        }
+
+        function renderSection(section) {
+            const container = document.querySelector(`.section-rows[data-section="${section}"]`);
+            const items = planData[section] || [];
+            container.innerHTML = items.map((item, i) => `
+                <div class="row-item">
+                    <input type="text" class="form-control" value="${item.name || ''}" placeholder="Name"
+                           onchange="updateItem('${section}',${i},'name',this.value)" />
+                    <input type="number" class="form-control" value="${item.amount || 0}" min="0" step="1"
+                           onchange="updateItem('${section}',${i},'amount',parseFloat(this.value)||0)" />
+                    <button class="btn-remove" onclick="removeItem('${section}',${i})" title="Remove">✕</button>
+                </div>
+            `).join('');
+        }
+
+        function renderSavings() {
+            const s = planData.savings || {};
+            document.getElementById('sav-current').value = s.current_savings || 0;
+            document.getElementById('sav-monthly').value = s.monthly_savings || 0;
+            document.getElementById('sav-emergency').value = s.emergency_target || 0;
+            document.getElementById('sav-months').value = s.emergency_months || 4;
+            document.getElementById('sav-goal').value = s.goal_amount || 0;
+            document.getElementById('sav-goaldate').value = s.goal_date || '';
+        }
+
+        function renderRentals() {
+            const rows = planData.rental_properties || [];
+            const container = document.getElementById('rental-rows');
+            container.innerHTML = rows.length === 0
+                ? '<div class="text-muted text-sm" style="padding:0.5rem 0;">No rental properties added.</div>'
+                : rows.map((r, i) => `
+                    <div class="rental-row">
+                        <input type="text" class="form-control" value="${r.name||''}" placeholder="Property name"
+                               onchange="updateRental(${i},'name',this.value)" />
+                        <input type="text" class="form-control" value="${r.institution||''}" placeholder="Institution (e.g. CIBC)"
+                               onchange="updateRental(${i},'institution',this.value)" />
+                        <input type="number" class="form-control" value="${r.monthly_income||0}" placeholder="Income" min="0"
+                               onchange="updateRental(${i},'monthly_income',parseFloat(this.value)||0)" />
+                        <input type="number" class="form-control" value="${r.monthly_expenses||0}" placeholder="Expenses" min="0"
+                               onchange="updateRental(${i},'monthly_expenses',parseFloat(this.value)||0)" />
+                        <input type="number" class="form-control" value="${r.mortgage||0}" placeholder="Mortgage/mo" min="0"
+                               onchange="updateRental(${i},'mortgage',parseFloat(this.value)||0)" />
+                        <input type="number" class="form-control" value="${r.mortgage_remaining||0}" placeholder="Mortgage left" min="0" step="1000"
+                               onchange="updateRental(${i},'mortgage_remaining',parseFloat(this.value)||0)" />
+                        <input type="number" class="form-control" value="${r.market_value||0}" placeholder="Market value" min="0" step="1000"
+                               onchange="updateRental(${i},'market_value',parseFloat(this.value)||0)" />
+                        <button class="btn-remove" onclick="removeRental(${i})" title="Remove">✕</button>
+                    </div>
+                `).join('');
+        }
+
+        function renderLoans() {
+            const rows = planData.loans || [];
+            document.getElementById('loan-rows').innerHTML = rows.length === 0
+                ? '<div class="text-muted text-sm" style="padding:0.5rem 0;">No loans added.</div>'
+                : rows.map((l, i) => `
+                    <div class="loan-row">
+                        <input type="text" class="form-control" value="${l.name||''}" placeholder="Loan name"
+                               onchange="updateLoan(${i},'name',this.value)" />
+                        <input type="text" class="form-control" value="${l.institution||''}" placeholder="Institution"
+                               onchange="updateLoan(${i},'institution',this.value)" />
+                        <input type="number" class="form-control" value="${l.balance||0}" placeholder="Balance" min="0"
+                               onchange="updateLoan(${i},'balance',parseFloat(this.value)||0);recalcAll()" />
+                        <input type="number" class="form-control" value="${l.rate||0}" placeholder="Rate %" min="0" step="0.01"
+                               onchange="updateLoan(${i},'rate',parseFloat(this.value)||0)" />
+                        <button class="btn-remove" onclick="removeLoan(${i})" title="Remove">✕</button>
+                    </div>
+                `).join('');
+        }
+
+        function renderAssets() {
+            const rows = planData.assets || [];
+            document.getElementById('asset-rows').innerHTML = rows.length === 0
+                ? '<div class="text-muted text-sm" style="padding:0.5rem 0;">No assets added.</div>'
+                : rows.map((a, i) => `
+                    <div class="asset-row">
+                        <input type="text" class="form-control" value="${a.name||''}" placeholder="Asset name"
+                               onchange="updateAsset(${i},'name',this.value)" />
+                        <input type="number" class="form-control" value="${a.loan_remaining||0}" placeholder="Loan" min="0"
+                               onchange="updateAsset(${i},'loan_remaining',parseFloat(this.value)||0);recalcAll()" />
+                        <input type="number" class="form-control" value="${a.market_value||0}" placeholder="Market value" min="0"
+                               onchange="updateAsset(${i},'market_value',parseFloat(this.value)||0);recalcAll()" />
+                        <button class="btn-remove" onclick="removeAsset(${i})" title="Remove">✕</button>
+                    </div>
+                `).join('');
+        }
+
+        // ─── Data mutation helpers ─────────────────────────
+        function updateItem(section, idx, field, value) {
+            if (!planData[section]) planData[section] = [];
+            planData[section][idx][field] = value;
+            recalcAll();
+        }
+
+        function addRow(section) {
+            if (!planData[section]) planData[section] = [];
+            planData[section].push({ name: '', amount: 0 });
+            renderSection(section);
+        }
+
+        function removeItem(section, idx) {
+            planData[section].splice(idx, 1);
+            renderSection(section);
+            recalcAll();
+        }
+
+        function updateRental(idx, field, value) { planData.rental_properties[idx][field] = value; recalcAll(); }
+        function addRentalRow() {
+            if (!planData.rental_properties) planData.rental_properties = [];
+            planData.rental_properties.push({ name: '', institution: '', monthly_income: 0, monthly_expenses: 0, mortgage: 0, mortgage_remaining: 0, market_value: 0 });
+            renderRentals();
+        }
+        function removeRental(idx) { planData.rental_properties.splice(idx, 1); renderRentals(); recalcAll(); }
+
+        function updateLoan(idx, field, value) { planData.loans[idx][field] = value; }
+        function addLoanRow() {
+            if (!planData.loans) planData.loans = [];
+            planData.loans.push({ name: '', institution: '', balance: 0, rate: 0 });
+            renderLoans();
+        }
+        function removeLoan(idx) { planData.loans.splice(idx, 1); renderLoans(); recalcAll(); }
+
+        function updateAsset(idx, field, value) { planData.assets[idx][field] = value; }
+        function addAssetRow() {
+            if (!planData.assets) planData.assets = [];
+            planData.assets.push({ name: '', loan_remaining: 0, market_value: 0 });
+            renderAssets();
+        }
+        function removeAsset(idx) { planData.assets.splice(idx, 1); renderAssets(); recalcAll(); }
+
+        // ─── Recalculate summaries ─────────────────────────
+        function sumSection(section) {
+            return (planData[section] || []).reduce((t, i) => t + (parseFloat(i.amount) || 0), 0);
+        }
+
+        function recalcAll() {
+            // Read savings fields back into planData
+            planData.savings = {
+                current_savings: parseFloat(document.getElementById('sav-current').value) || 0,
+                monthly_savings: parseFloat(document.getElementById('sav-monthly').value) || 0,
+                emergency_target: parseFloat(document.getElementById('sav-emergency').value) || 0,
+                emergency_months: parseInt(document.getElementById('sav-months').value) || 4,
+                goal_amount: parseFloat(document.getElementById('sav-goal').value) || 0,
+                goal_date: document.getElementById('sav-goaldate').value || '',
+            };
+
+            const totalIncome = sumSection('income');
+            const totalNeeds = sumSection('needs');
+            const totalWants = sumSection('wants');
+            const totalBills = sumSection('bills');
+            const totalSubs = sumSection('subscriptions');
+            const totalInsurance = sumSection('insurance');
+            const monthlySavings = planData.savings.monthly_savings;
+            const currentSavings = planData.savings.current_savings;
+
+            // Rental properties
+            const rentals = planData.rental_properties || [];
+            const rentalIncome = rentals.reduce((t, r) => t + (parseFloat(r.monthly_income) || 0), 0);
+            const rentalExpenses = rentals.reduce((t, r) => t + (parseFloat(r.monthly_expenses) || 0), 0);
+            const rentalMortgage = rentals.reduce((t, r) => t + (parseFloat(r.mortgage) || 0), 0);
+            const rentalMortgageRemaining = rentals.reduce((t, r) => t + (parseFloat(r.mortgage_remaining) || 0), 0);
+            const rentalMarketValue = rentals.reduce((t, r) => t + (parseFloat(r.market_value) || 0), 0);
+            const rentalNet = rentalIncome - rentalExpenses - rentalMortgage;
+
+            // Rental totals display
+            const rentalNetEl = document.getElementById('total-rental-net');
+            if (rentalNetEl) {
+                rentalNetEl.textContent = formatCurrency(rentalNet);
+                rentalNetEl.style.color = rentalNet >= 0 ? '#22c55e' : '#ef4444';
+            }
+            const rentalMortEl = document.getElementById('total-rental-mortgage');
+            if (rentalMortEl) rentalMortEl.textContent = formatCurrency(rentalMortgageRemaining);
+            const rentalEqEl = document.getElementById('total-rental-equity');
+            if (rentalEqEl) {
+                const eq = rentalMarketValue - rentalMortgageRemaining;
+                rentalEqEl.textContent = formatCurrency(eq);
+                rentalEqEl.style.color = eq >= 0 ? '#22c55e' : '#ef4444';
+            }
+
+            // Total income includes rental net income (if positive)
+            const combinedIncome = totalIncome + Math.max(rentalNet, 0);
+
+            const allExpenses = totalNeeds + totalBills + totalInsurance + totalWants + totalSubs;
+            // If rental net is negative, it's a cost — add it to expenses
+            const rentalCost = rentalNet < 0 ? Math.abs(rentalNet) : 0;
+            const net = combinedIncome - allExpenses - monthlySavings - rentalCost;
+
+            // Section totals
+            document.getElementById('total-income').textContent = formatCurrency(totalIncome);
+            document.getElementById('total-needs').textContent = formatCurrency(totalNeeds);
+            document.getElementById('total-wants').textContent = formatCurrency(totalWants);
+            document.getElementById('total-bills').textContent = formatCurrency(totalBills);
+            document.getElementById('total-subscriptions').textContent = formatCurrency(totalSubs);
+            document.getElementById('total-insurance').textContent = formatCurrency(totalInsurance);
+
+            // KPIs
+            document.getElementById('kpi-income').textContent = formatCurrency(combinedIncome);
+            document.getElementById('kpi-expenses').textContent = formatCurrency(allExpenses + rentalCost);
+            document.getElementById('kpi-savings').textContent = formatCurrency(monthlySavings);
+
+            const netEl = document.getElementById('kpi-net');
+            netEl.textContent = formatCurrency(net);
+            netEl.className = `kpi-value ${net >= 0 ? 'text-success' : 'text-danger'}`;
+
+            // Savings section
+            const remaining = planData.savings.current_savings - planData.savings.emergency_target;
+            document.getElementById('sav-remaining').textContent = formatCurrency(remaining);
+            document.getElementById('sav-remaining').style.color = remaining >= 0 ? '#22c55e' : '#ef4444';
+
+            // Time to goal
+            const goalAmt = planData.savings.goal_amount;
+            const goalDate = planData.savings.goal_date;
+            const goalEl = document.getElementById('sav-time-to-goal');
+            if (goalAmt > 0 && monthlySavings > 0) {
+                const monthsToGoal = Math.ceil((goalAmt - planData.savings.current_savings) / monthlySavings);
+                goalEl.textContent = `≈ ${monthsToGoal} months to reach goal at current savings rate`;
+            } else {
+                goalEl.textContent = '';
+            }
+
+            // Loans total
+            const totalDebt = (planData.loans || []).reduce((t, l) => t + (parseFloat(l.balance) || 0), 0);
+            document.getElementById('total-loans').textContent = formatCurrency(totalDebt);
+
+            // Assets (primary home, etc.)
+            const totalAssetValue = (planData.assets || []).reduce((t, a) => t + (parseFloat(a.market_value) || 0), 0);
+            const totalAssetLoan = (planData.assets || []).reduce((t, a) => t + (parseFloat(a.loan_remaining) || 0), 0);
+            document.getElementById('total-asset-value').textContent = formatCurrency(totalAssetValue);
+            document.getElementById('total-equity').textContent = formatCurrency(totalAssetValue - totalAssetLoan);
+
+            // Net Worth = Assets + Rental Properties + Savings - Asset Loans - Other Loans - Rental Mortgages
+            const netWorth = totalAssetValue + rentalMarketValue + currentSavings
+                           - totalAssetLoan - totalDebt - rentalMortgageRemaining;
+            const nwEl = document.getElementById('kpi-networth');
+            nwEl.textContent = formatCurrency(netWorth);
+            nwEl.className = `kpi-value ${netWorth >= 0 ? 'text-success' : 'text-danger'}`;
+
+            // 50/30/20 bars (use combined income as base)
+            const needsPct = combinedIncome ? ((totalNeeds + totalBills + totalInsurance) / combinedIncome * 100) : 0;
+            const wantsPct = combinedIncome ? ((totalWants + totalSubs) / combinedIncome * 100) : 0;
+            const savPct = combinedIncome ? (monthlySavings / combinedIncome * 100) : 0;
+
+            setBar('bar-needs', 'lbl-needs', needsPct, 50);
+            setBar('bar-wants', 'lbl-wants', wantsPct, 30);
+            setBar('bar-savings', 'lbl-savings', savPct, 20, true);
+
+            renderCharts(totalNeeds, totalBills, totalInsurance, totalWants, totalSubs, totalIncome, allExpenses, monthlySavings);
+        }
+
+        function setBar(barId, lblId, pct, target, inverse = false) {
+            const bar = document.getElementById(barId);
+            const lbl = document.getElementById(lblId);
+            const clamped = Math.min(pct, 100);
+            bar.style.width = clamped + '%';
+            lbl.textContent = pct.toFixed(1) + '%';
+
+            if (inverse) {
+                bar.style.background = pct >= target ? '#22c55e' : '#ef4444';
+                lbl.style.color = pct >= target ? '#22c55e' : '#ef4444';
+            } else {
+                bar.style.background = pct <= target ? '#22c55e' : pct <= target * 1.2 ? '#f59e0b' : '#ef4444';
+                lbl.style.color = pct <= target ? '#22c55e' : pct <= target * 1.2 ? '#f59e0b' : '#ef4444';
+            }
+        }
+
+        function renderCharts(needs, bills, insurance, wants, subs, income, expenses, savings) {
+            // Breakdown doughnut
+            const bCanvas = document.getElementById('chart-breakdown');
+            if (breakdownChart) breakdownChart.destroy();
+            breakdownChart = new Chart(bCanvas, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Needs', 'Bills', 'Insurance/Tax', 'Wants', 'Subscriptions'],
+                    datasets: [{
+                        data: [needs, bills, insurance, wants, subs],
+                        backgroundColor: ['#22c55e','#3b82f6','#6366f1','#f59e0b','#ef4444'],
+                        borderWidth: 0,
+                    }],
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right', labels: { color: '#94a3b8', font: { size: 11 }, padding: 8, usePointStyle: true } } },
+                },
+            });
+
+            // Flow bar chart
+            const fCanvas = document.getElementById('chart-flow');
+            if (flowChart) flowChart.destroy();
+            flowChart = new Chart(fCanvas, {
+                type: 'bar',
+                data: {
+                    labels: ['Income', 'Expenses', 'Savings', 'Remaining'],
+                    datasets: [{
+                        data: [income, expenses, savings, Math.max(income - expenses - savings, 0)],
+                        backgroundColor: ['#22c55e','#ef4444','#6366f1','#3b82f6'],
+                        borderRadius: 4,
+                    }],
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.1)' } },
+                        y: { ticks: { color: '#94a3b8', callback: v => '$' + v.toLocaleString() }, grid: { color: 'rgba(148,163,184,0.1)' } },
+                    },
+                },
+            });
+        }
+
+        // ═══ Month-to-Month Comparison ═══════════════════════
+
+        function setCompChartType(type) {
+            compChartType = type;
+            document.getElementById('comp-btn-bar').style.opacity = type === 'bar' ? '1' : '0.6';
+            document.getElementById('comp-btn-bar').className = type === 'bar' ? 'btn btn-sm' : 'btn btn-sm btn-secondary';
+            document.getElementById('comp-btn-line').style.opacity = type === 'line' ? '1' : '0.6';
+            document.getElementById('comp-btn-line').className = type === 'line' ? 'btn btn-sm' : 'btn btn-sm btn-secondary';
+            renderComparison();
+        }
+
+        function renderComparison() {
+            if (!comparisonData.length) {
+                document.getElementById('comparison-section').style.display = 'none';
+                return;
+            }
+            document.getElementById('comparison-section').style.display = '';
+
+            renderTrendsChart();
+            renderMoMCards();
+            renderComparisonTable();
+        }
+
+        function renderTrendsChart() {
+            const labels = comparisonData.map(d => d.label);
+            const canvas = document.getElementById('chart-trends');
+            if (trendsChart) trendsChart.destroy();
+
+            const datasets = [
+                { label: 'Income', data: comparisonData.map(d => d.income), borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.15)', fill: compChartType === 'line' },
+                { label: 'Total Expenses', data: comparisonData.map(d => d.total_expenses), borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.15)', fill: compChartType === 'line' },
+                { label: 'Needs', data: comparisonData.map(d => d.needs), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.5)' },
+                { label: 'Wants', data: comparisonData.map(d => d.wants), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.5)' },
+                { label: 'Bills', data: comparisonData.map(d => d.bills), borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.5)' },
+                { label: 'Net Cash Flow', data: comparisonData.map(d => d.net), borderColor: '#14b8a6', backgroundColor: 'rgba(20,184,166,0.15)', fill: compChartType === 'line', borderDash: [5, 3] },
+            ];
+
+            if (compChartType === 'line') {
+                datasets.forEach(ds => {
+                    ds.tension = 0.3;
+                    ds.pointRadius = 4;
+                    ds.pointHoverRadius = 6;
+                    ds.borderWidth = 2;
+                });
+            } else {
+                datasets.forEach(ds => {
+                    ds.borderRadius = 3;
+                    ds.borderWidth = 0;
+                });
+            }
+
+            trendsChart = new Chart(canvas, {
+                type: compChartType,
+                data: { labels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { color: '#94a3b8', font: { size: 11 }, padding: 10, usePointStyle: true },
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => `${ctx.dataset.label}: $${ctx.parsed.y.toLocaleString()}`,
+                            },
+                        },
+                    },
+                    scales: {
+                        x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.08)' } },
+                        y: {
+                            ticks: { color: '#94a3b8', callback: v => '$' + v.toLocaleString() },
+                            grid: { color: 'rgba(148,163,184,0.08)' },
+                        },
+                    },
+                },
+            });
+        }
+
+        function renderMoMCards() {
+            const container = document.getElementById('mom-changes');
+            if (comparisonData.length < 2) {
+                container.innerHTML = '<div class="text-muted text-sm">Need at least 2 months for comparison.</div>';
+                return;
+            }
+
+            const latest = comparisonData[comparisonData.length - 1];
+            const prev = comparisonData[comparisonData.length - 2];
+
+            const metrics = [
+                { label: 'Income', curr: latest.income, prev: prev.income, higherIsBetter: true },
+                { label: 'Total Expenses', curr: latest.total_expenses, prev: prev.total_expenses, higherIsBetter: false },
+                { label: 'Needs', curr: latest.needs, prev: prev.needs, higherIsBetter: false },
+                { label: 'Wants', curr: latest.wants, prev: prev.wants, higherIsBetter: false },
+                { label: 'Net Cash Flow', curr: latest.net, prev: prev.net, higherIsBetter: true },
+            ];
+
+            container.innerHTML = `
+                <div class="text-xs text-muted" style="margin-bottom:0.5rem;">
+                    ${prev.label} → ${latest.label} (Latest Month Change)
+                </div>
+                <div class="mom-grid">
+                    ${metrics.map(m => {
+                        const diff = m.curr - m.prev;
+                        const pctChange = m.prev !== 0 ? ((diff / Math.abs(m.prev)) * 100).toFixed(1) : '—';
+                        const isPositive = diff > 0;
+                        const isBetter = m.higherIsBetter ? diff > 0 : diff < 0;
+                        const arrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '—';
+                        const cls = diff === 0 ? 'change-neutral' : isBetter ? 'change-up' : 'change-down';
+
+                        return `
+                            <div class="mom-card">
+                                <div class="mom-label">${m.label}</div>
+                                <div class="mom-value">$${m.curr.toLocaleString()}</div>
+                                <div class="mom-change ${cls}">
+                                    ${arrow} $${Math.abs(diff).toLocaleString()} (${pctChange}%)
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        function renderComparisonTable() {
+            const headerRow = document.getElementById('comp-header');
+            const body = document.getElementById('comp-body');
+
+            headerRow.innerHTML = '<th>Category</th>' +
+                comparisonData.map(d => `<th>${d.label}</th>`).join('');
+
+            const rows = ['income', 'needs', 'wants', 'bills', 'subscriptions', 'insurance', 'total_expenses', 'net'];
+            const rowLabels = {
+                income: '💵 Income',
+                needs: '🏠 Needs',
+                wants: '🎉 Wants',
+                bills: '📱 Bills',
+                subscriptions: '🔄 Subscriptions',
+                insurance: '🛡️ Insurance',
+                total_expenses: '📊 Total Expenses',
+                net: '💰 Net Cash Flow',
+            };
+
+            body.innerHTML = rows.map(row => {
+                const cells = comparisonData.map((d, i) => {
+                    const val = d[row];
+                    // color net cash flow
+                    let style = '';
+                    if (row === 'net') style = val >= 0 ? 'color:#22c55e;' : 'color:#ef4444;';
+                    if (row === 'total_expenses') style = 'color:#ef4444;font-weight:600;';
+                    if (row === 'income') style = 'color:#22c55e;font-weight:600;';
+
+                    // Arrow for month-over-month change
+                    let arrow = '';
+                    if (i > 0) {
+                        const prev = comparisonData[i - 1][row];
+                        const diff = val - prev;
+                        if (diff !== 0) {
+                            const isExpense = ['needs','wants','bills','subscriptions','insurance','total_expenses'].includes(row);
+                            const isBetter = isExpense ? diff < 0 : diff > 0;
+                            arrow = `<span style="font-size:0.7rem;margin-left:4px;color:${isBetter ? '#22c55e' : '#ef4444'};">${diff > 0 ? '▲' : '▼'}</span>`;
+                        }
+                    }
+                    return `<td style="${style}">$${val.toLocaleString()}${arrow}</td>`;
+                }).join('');
+
+                const isSummary = ['total_expenses', 'net'].includes(row);
+                const rowStyle = isSummary ? 'style="border-top:2px solid var(--border);"' : '';
+                return `<tr ${rowStyle}><td style="font-weight:500;">${rowLabels[row]}</td>${cells}</tr>`;
+            }).join('');
+        }
+
+        // ─── Save ──────────────────────────────────────────
+        async function savePlan() {
+            // Make sure savings fields are captured
+            planData.savings = {
+                current_savings: parseFloat(document.getElementById('sav-current').value) || 0,
+                monthly_savings: parseFloat(document.getElementById('sav-monthly').value) || 0,
+                emergency_target: parseFloat(document.getElementById('sav-emergency').value) || 0,
+                emergency_months: parseInt(document.getElementById('sav-months').value) || 4,
+                goal_amount: parseFloat(document.getElementById('sav-goal').value) || 0,
+                goal_date: document.getElementById('sav-goaldate').value || '',
+            };
+
+            try {
+                await apiSavePlan(planData);
+                showAlert(document.getElementById('alert-container'), 'Financial plan saved!', 'success');
+            } catch (err) {
+                showAlert(document.getElementById('alert-container'), err.message);
+            }
+        }
+
+        async function syncFromTransactions() {
+            const monthLabel = selectedMonth
+                ? document.getElementById('month-filter').selectedOptions[0].textContent
+                : 'all time (averaged)';
+            if (!confirm(`This will replace your current plan with data from ${monthLabel}. Loans, assets and rental properties will be kept. Continue?`)) return;
+
+            try {
+                const result = await apiGetPlanAutoPopulate(selectedMonth || null);
+                const newData = result.plan_data;
+
+                // Preserve manual sections that transactions don't have
+                newData.loans = planData.loans || [];
+                newData.assets = planData.assets || [];
+
+                // Merge rental properties: keep manual fields (mortgage_remaining, market_value)
+                // from existing entries, update income/expenses from transaction data
+                const oldRentals = planData.rental_properties || [];
+                const newRentals = newData.rental_properties || [];
+                if (newRentals.length > 0) {
+                    newRentals.forEach(nr => {
+                        // Find matching existing rental by institution name
+                        const match = oldRentals.find(or_ =>
+                            (or_.institution || '').toLowerCase() === (nr.institution || '').toLowerCase()
+                        );
+                        if (match) {
+                            nr.mortgage = match.mortgage || nr.mortgage || 0;
+                            nr.mortgage_remaining = match.mortgage_remaining || 0;
+                            nr.market_value = match.market_value || 0;
+                            nr.name = match.name || nr.name;
+                        }
+                    });
+                    // Also keep any old rentals that have no matching new entry
+                    oldRentals.forEach(or_ => {
+                        const alreadyMerged = newRentals.some(nr =>
+                            (nr.institution || '').toLowerCase() === (or_.institution || '').toLowerCase()
+                        );
+                        if (!alreadyMerged && (or_.market_value > 0 || or_.mortgage_remaining > 0 || or_.monthly_income > 0)) {
+                            newRentals.push(or_);
+                        }
+                    });
+                    newData.rental_properties = newRentals;
+                } else {
+                    // No rental data from transactions — keep existing
+                    newData.rental_properties = oldRentals;
+                }
+
+                // Preserve savings manual fields but update monthly_savings
+                const oldSavings = planData.savings || {};
+                newData.savings.current_savings = oldSavings.current_savings || 0;
+                newData.savings.emergency_target = oldSavings.emergency_target || 0;
+                newData.savings.emergency_months = oldSavings.emergency_months || 4;
+                newData.savings.goal_amount = oldSavings.goal_amount || 0;
+                newData.savings.goal_date = oldSavings.goal_date || '';
+
+                planData = newData;
+                renderAll();
+
+                const periodInfo = result.selected_month
+                    ? `Loaded actual data for ${monthLabel}`
+                    : `Synced from ${result.months_analyzed} month(s) of transaction data (${result.period.start} to ${result.period.end})`;
+                showAlert(document.getElementById('alert-container'), periodInfo, 'success');
+            } catch (err) {
+                showAlert(document.getElementById('alert-container'), 'Sync failed: ' + err.message);
+            }
+        }
+    </script>
+</body>
+</html>

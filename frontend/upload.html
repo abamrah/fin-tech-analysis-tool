@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Statements — Financial Intelligence Engine</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        .file-queue {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        .file-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            transition: var(--transition);
+        }
+        .file-item.uploading { border-color: var(--accent); background: var(--accent-light); }
+        .file-item.success   { border-color: var(--success); background: var(--success-light); }
+        .file-item.failed    { border-color: var(--danger);  background: var(--danger-light); }
+        .file-item .file-icon { font-size: 1.3rem; flex-shrink: 0; }
+        .file-item .file-info { flex: 1; min-width: 0; }
+        .file-item .file-name {
+            font-weight: 500; font-size: 0.9rem;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .file-item .file-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem; }
+        .file-item .file-status { flex-shrink: 0; font-size: 0.8rem; font-weight: 500; }
+        .file-item .file-remove {
+            flex-shrink: 0; background: none; border: none;
+            color: var(--text-muted); cursor: pointer; font-size: 1rem;
+            padding: 0.25rem; border-radius: 4px; transition: var(--transition);
+        }
+        .file-item .file-remove:hover { color: var(--danger); background: var(--danger-light); }
+        .file-count { font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.75rem; }
+        .upload-summary {
+            display: flex; gap: 1.5rem; flex-wrap: wrap;
+            padding: 1rem; background: var(--bg-input);
+            border-radius: var(--radius-sm); font-size: 0.85rem; margin-top: 1rem;
+        }
+        .upload-summary .stat-label { color: var(--text-muted); }
+        .upload-summary .stat-value { font-weight: 600; margin-left: 0.35rem; }
+    </style>
+</head>
+<body>
+    <div class="main-content">
+        <div class="page-header">
+            <h1>📄 Upload Statements</h1>
+            <p>Upload one or more bank / credit card PDF statements for analysis</p>
+        </div>
+
+        <div id="alert-container"></div>
+
+        <div class="card mb-3">
+            <div class="card-header">
+                <span class="card-title">Statement Upload</span>
+            </div>
+
+            <form id="upload-form">
+                <div class="upload-area" id="upload-area">
+                    <div class="upload-icon">📁</div>
+                    <div class="upload-text">Drop your PDFs here or click to browse</div>
+                    <div class="upload-hint">Select multiple files at once · Supports bank &amp; credit card statements · Max 20 MB each</div>
+                    <input type="file" id="file-input" accept=".pdf" multiple style="display:none">
+                </div>
+
+                <!-- File Queue -->
+                <div id="file-queue" class="file-queue hidden"></div>
+                <div id="file-count" class="file-count hidden"></div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1.25rem;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label for="account-type">Account Type (optional)</label>
+                        <select id="account-type" class="form-select">
+                            <option value="">Auto-detect</option>
+                            <option value="checking">Checking / Savings</option>
+                            <option value="credit">Credit Card</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label for="institution">Financial Institution (optional)</label>
+                        <input type="text" id="institution" class="form-input" placeholder="e.g., TD Bank, RBC">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block" id="upload-btn" style="margin-top:1.25rem;" disabled>
+                    📤 Upload & Process All
+                </button>
+            </form>
+        </div>
+
+        <!-- Processing Status -->
+        <div id="status-section" class="hidden">
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Processing Status</span>
+                    <span id="status-overall" class="badge badge-warning">Processing...</span>
+                </div>
+                <div id="status-list"></div>
+                <div id="upload-summary" class="upload-summary hidden">
+                    <div><span class="stat-label">Total:</span><span class="stat-value" id="sum-total">0</span></div>
+                    <div><span class="stat-label">Succeeded:</span><span class="stat-value text-success" id="sum-ok">0</span></div>
+                    <div><span class="stat-label">Duplicates:</span><span class="stat-value" style="color:#fb923c;" id="sum-dup">0</span></div>
+                    <div><span class="stat-label">Failed:</span><span class="stat-value text-danger" id="sum-fail">0</span></div>
+                    <div><span class="stat-label">Transactions:</span><span class="stat-value text-accent" id="sum-txns">0</span></div>
+                </div>
+                <div id="status-actions" class="hidden" style="margin-top:1rem;display:flex;gap:0.75rem;">
+                    <a href="/dashboard.html" class="btn btn-primary btn-sm">📊 View Dashboard</a>
+                    <a href="/transactions.html" class="btn btn-secondary btn-sm">💳 View Transactions</a>
+                    <button class="btn btn-secondary btn-sm" onclick="resetUpload()">📄 Upload More</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tips -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <span class="card-title">Processing Tips</span>
+            </div>
+            <div style="font-size:0.9rem;color:var(--text-secondary);line-height:1.8;">
+                <p>✅ Works best with digital PDF statements (not scanned images)</p>
+                <p>✅ Supported banks: TD, RBC, BMO, Scotiabank, CIBC, Chase, and more</p>
+                <p>✅ Select multiple PDFs to upload them all in one go</p>
+                <p>✅ Each file is processed independently — one failure won't block others</p>
+                <p>✅ Transactions are automatically categorized using rules + AI</p>
+                <p>🔀 Inter-account transfers are auto-detected across statements</p>
+                <p>📋 Duplicate statements are auto-detected by file content and skipped</p>
+                <p>📋 Same transactions across different files are flagged as duplicates</p>
+                <p>⚡ Processing typically takes 5-15 seconds per file</p>
+            </div>
+        </div>
+
+        <!-- Reset Data -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <span class="card-title">🔄 Reset Data</span>
+            </div>
+            <div style="font-size:0.9rem;color:var(--text-secondary);line-height:1.8;">
+                <p>If dates or detection results look wrong, you can clear all statements and re-upload.</p>
+                <button class="btn btn-secondary btn-sm" id="reset-data-btn" style="margin-top:0.5rem;border-color:var(--danger);color:var(--danger);"
+                    onclick="resetAllData()">🗑️ Delete All Statements &amp; Re-upload</button>
+                <span id="reset-status" style="margin-left:0.75rem;font-size:0.85rem;"></span>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/navbar.js"></script>
+    <script>
+        // ─── State ──────────────────────────────
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+        const fileQueueEl = document.getElementById('file-queue');
+        const fileCountEl = document.getElementById('file-count');
+        const uploadBtn = document.getElementById('upload-btn');
+        let fileQueue = []; // { id, file, status, statementId, result }
+
+        // ─── Click to browse ────────────────────
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        // ─── File selected ──────────────────────
+        fileInput.addEventListener('change', (e) => {
+            addFiles(e.target.files);
+            fileInput.value = '';
+        });
+
+        // ─── Drag & drop ────────────────────────
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            addFiles(e.dataTransfer.files);
+        });
+
+        // ─── Add files to queue ─────────────────
+        function addFiles(fileList) {
+            const alertContainer = document.getElementById('alert-container');
+            let skipped = 0;
+
+            for (const file of fileList) {
+                if (!file.name.toLowerCase().endsWith('.pdf')) { skipped++; continue; }
+                if (file.size > 20 * 1024 * 1024) {
+                    showAlert(alertContainer, `${file.name} exceeds 20 MB — skipped`, 'warning');
+                    continue;
+                }
+                if (fileQueue.some(f => f.file.name === file.name && f.file.size === file.size)) continue;
+
+                fileQueue.push({
+                    id: Date.now() + '_' + Math.random().toString(36).slice(2),
+                    file, status: 'pending', statementId: null, result: null,
+                });
+            }
+
+            if (skipped > 0) showAlert(alertContainer, `${skipped} non-PDF file(s) skipped`, 'warning');
+            renderQueue();
+        }
+
+        // ─── Render file queue ──────────────────
+        function renderQueue() {
+            if (fileQueue.length === 0) {
+                fileQueueEl.classList.add('hidden');
+                fileCountEl.classList.add('hidden');
+                uploadBtn.disabled = true;
+                uploadBtn.innerHTML = '📤 Upload & Process All';
+                return;
+            }
+
+            fileQueueEl.classList.remove('hidden');
+            fileCountEl.classList.remove('hidden');
+
+            const pendingCount = fileQueue.filter(f => f.status === 'pending').length;
+            uploadBtn.disabled = pendingCount === 0;
+            uploadBtn.innerHTML = `📤 Upload & Process ${fileQueue.length} file${fileQueue.length > 1 ? 's' : ''}`;
+
+            fileCountEl.textContent = `${fileQueue.length} file${fileQueue.length > 1 ? 's' : ''} selected`;
+
+            fileQueueEl.innerHTML = fileQueue.map(f => {
+                const sizeStr = (f.file.size / 1024 / 1024).toFixed(2) + ' MB';
+                let statusIcon = '', statusText = '', itemClass = '', removeBtn = '';
+
+                switch (f.status) {
+                    case 'pending':
+                        statusIcon = '⏳'; statusText = 'Ready';
+                        removeBtn = `<button class="file-remove" onclick="removeFile('${f.id}')" title="Remove">✕</button>`;
+                        break;
+                    case 'uploading':
+                        statusIcon = '<span class="loading-spinner"></span>';
+                        statusText = '<span class="text-accent">Uploading…</span>';
+                        itemClass = 'uploading';
+                        break;
+                    case 'polling':
+                        statusIcon = '<span class="loading-spinner"></span>';
+                        statusText = '<span class="text-accent">Processing…</span>';
+                        itemClass = 'uploading';
+                        break;
+                    case 'success':
+                        statusIcon = '✅';
+                        const dupCount = f.result?.duplicate_transactions || 0;
+                        const dupInfo = dupCount > 0 ? ` · <span style="color:#fb923c;">${dupCount} dup</span>` : '';
+                        statusText = `<span class="text-success">${f.result?.total_transactions || 0} txns (${f.result?.parsing_method || 'auto'})${dupInfo}</span>`;
+                        itemClass = 'success';
+                        break;
+                    case 'failed':
+                        statusIcon = '❌';
+                        const err = f.result?.error_message || 'Failed';
+                        statusText = `<span class="text-danger" title="${escapeAttr(err)}">${truncStr(err, 40)}</span>`;
+                        itemClass = 'failed';
+                        break;
+                    case 'duplicate':
+                        statusIcon = '📋';
+                        statusText = `<span style="color:#fb923c;" title="${escapeAttr(f.result?.error_message || '')}">Duplicate — skipped</span>`;
+                        itemClass = 'failed';
+                        break;
+                }
+
+                return `
+                    <div class="file-item ${itemClass}">
+                        <span class="file-icon">📄</span>
+                        <div class="file-info">
+                            <div class="file-name" title="${escapeAttr(f.file.name)}">${escapeHtml(f.file.name)}</div>
+                            <div class="file-meta">${sizeStr}</div>
+                        </div>
+                        <div class="file-status">${statusIcon} ${statusText}</div>
+                        ${removeBtn}
+                    </div>`;
+            }).join('');
+        }
+
+        // ─── Remove file ────────────────────────
+        function removeFile(id) {
+            fileQueue = fileQueue.filter(f => f.id !== id);
+            renderQueue();
+        }
+
+        // ─── Upload form submission ─────────────
+        document.getElementById('upload-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const pending = fileQueue.filter(f => f.status === 'pending');
+            if (pending.length === 0) return;
+
+            uploadBtn.disabled = true;
+            uploadBtn.innerHTML = '<span class="loading-spinner"></span> Uploading…';
+
+            const accountType = document.getElementById('account-type').value || undefined;
+            const institution = document.getElementById('institution').value || undefined;
+
+            document.getElementById('status-section').classList.remove('hidden');
+            document.getElementById('status-overall').className = 'badge badge-warning';
+            document.getElementById('status-overall').textContent = `Processing 0/${pending.length}…`;
+            document.getElementById('status-actions').classList.add('hidden');
+            document.getElementById('upload-summary').classList.add('hidden');
+
+            let doneCount = 0;
+
+            for (const item of pending) {
+                item.status = 'uploading';
+                renderQueue();
+
+                try {
+                    const result = await apiUploadStatement(item.file, accountType, institution);
+                    item.statementId = result.statement_id;
+                    item.status = 'polling';
+                    renderQueue();
+
+                    const finalStatus = await pollUntilDone(result.statement_id);
+                    item.result = finalStatus;
+                    item.status = finalStatus.status === 'completed' ? 'success' : 'failed';
+                } catch (err) {
+                    // Check if it's a duplicate file (409 Conflict)
+                    if (err.message && (err.message.includes('Duplicate file') || err.message.includes('duplicate') || err.message.includes('409'))) {
+                        item.status = 'duplicate';
+                        item.result = { error_message: err.message };
+                    } else {
+                        item.status = 'failed';
+                        item.result = { error_message: err.message };
+                    }
+                }
+
+                doneCount++;
+                document.getElementById('status-overall').textContent = `Processing ${doneCount}/${pending.length}…`;
+                renderQueue();
+            }
+
+            showFinalSummary();
+        });
+
+        // ─── Poll until done ────────────────────
+        function pollUntilDone(statementId) {
+            return new Promise((resolve, reject) => {
+                let attempts = 0;
+                const check = async () => {
+                    try {
+                        const s = await apiGetStatementStatus(statementId);
+                        if (s.status === 'completed' || s.status === 'failed') { resolve(s); return; }
+                        if (++attempts >= 60) { resolve({ status: 'failed', error_message: 'Timed out after 2 minutes' }); return; }
+                        setTimeout(check, 2000);
+                    } catch (err) { reject(err); }
+                };
+                check();
+            });
+        }
+
+        // ─── Final summary ──────────────────────
+        function showFinalSummary() {
+            const ok = fileQueue.filter(f => f.status === 'success');
+            const fail = fileQueue.filter(f => f.status === 'failed');
+            const dup = fileQueue.filter(f => f.status === 'duplicate');
+            const totalTxns = ok.reduce((s, f) => s + (f.result?.total_transactions || 0), 0);
+
+            const badge = document.getElementById('status-overall');
+            if (fail.length === 0 && dup.length === 0) {
+                badge.className = 'badge badge-success';
+                badge.textContent = 'All Completed ✓';
+            } else if (ok.length === 0 && dup.length === 0) {
+                badge.className = 'badge badge-danger';
+                badge.textContent = 'All Failed ✗';
+            } else if (ok.length === 0 && dup.length > 0) {
+                badge.className = 'badge badge-warning';
+                badge.textContent = `All Duplicates — Skipped`;
+            } else {
+                badge.className = 'badge badge-warning';
+                badge.textContent = `${ok.length}/${fileQueue.length} Completed` + (dup.length > 0 ? `, ${dup.length} dup` : '');
+            }
+
+            document.getElementById('sum-total').textContent = fileQueue.length;
+            document.getElementById('sum-ok').textContent = ok.length;
+            document.getElementById('sum-dup').textContent = dup.length;
+            document.getElementById('sum-fail').textContent = fail.length;
+            document.getElementById('sum-txns').textContent = totalTxns;
+            document.getElementById('upload-summary').classList.remove('hidden');
+            document.getElementById('status-actions').classList.remove('hidden');
+
+            uploadBtn.disabled = true;
+            uploadBtn.innerHTML = '✅ Upload Complete';
+        }
+
+        // ─── Reset ──────────────────────────────
+        function resetUpload() {
+            fileQueue = [];
+            renderQueue();
+            document.getElementById('status-section').classList.add('hidden');
+            document.getElementById('account-type').value = '';
+            document.getElementById('institution').value = '';
+            uploadBtn.disabled = true;
+            uploadBtn.innerHTML = '📤 Upload & Process All';
+        }
+
+        // ─── Utilities ──────────────────────────
+        function escapeHtml(s) {
+            return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : '';
+        }
+        function escapeAttr(s) { return escapeHtml(s).replace(/'/g,'&#39;'); }
+        function truncStr(s, max) { return s && s.length > max ? s.slice(0, max) + '…' : (s || ''); }
+
+        // ─── Reset All Data ─────────────────────
+        async function resetAllData() {
+            if (!confirm('This will permanently delete ALL your statements, transactions, and accounts. You can then re-upload your PDFs.\n\nContinue?')) return;
+            const statusEl = document.getElementById('reset-status');
+            const btn = document.getElementById('reset-data-btn');
+            btn.disabled = true;
+            statusEl.textContent = 'Deleting...';
+            statusEl.style.color = 'var(--text-muted)';
+            try {
+                const resp = await fetchAPI('/upload/statements', { method: 'DELETE' });
+                statusEl.textContent = '✅ ' + (resp.message || 'All data deleted. Re-upload your PDFs now.');
+                statusEl.style.color = 'var(--success)';
+            } catch (err) {
+                statusEl.textContent = '❌ ' + err.message;
+                statusEl.style.color = 'var(--danger)';
+            } finally {
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

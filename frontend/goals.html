@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Savings Goals — Financial Intelligence Engine</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="main-content">
+        <div class="page-header">
+            <h1>🎯 Savings Goals</h1>
+            <p>Set targets and track your progress toward financial goals</p>
+        </div>
+
+        <div id="alert-container"></div>
+
+        <div style="display:flex;justify-content:flex-end;margin-bottom:1.5rem;">
+            <button class="btn btn-primary" onclick="openGoalModal()">+ New Goal</button>
+        </div>
+
+        <!-- Goals Grid -->
+        <div id="goals-grid" class="goals-grid">
+            <div class="text-center text-muted" style="padding:3rem;grid-column:1/-1;">Loading goals...</div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="hidden">
+            <div class="empty-state">
+                <div class="empty-icon">🎯</div>
+                <div class="empty-title">No savings goals yet</div>
+                <p class="text-muted">Create a savings goal to track your progress.</p>
+                <button class="btn btn-primary" style="margin-top:1rem;" onclick="openGoalModal()">Create Goal</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Goal Modal -->
+    <div id="goal-modal-overlay" class="modal-overlay hidden" onclick="closeGoalModal(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3 id="goal-modal-title">New Goal</h3>
+                <button class="btn-close" onclick="closeGoalModal()">&times;</button>
+            </div>
+            <form id="goal-form" onsubmit="saveGoal(event)">
+                <div class="form-group">
+                    <label class="form-label">Goal Name</label>
+                    <input type="text" id="goal-name" class="form-control" required placeholder="e.g. Emergency Fund" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Target Amount ($)</label>
+                    <input type="number" id="goal-target" class="form-control" step="0.01" min="1" required placeholder="e.g. 10000" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Currently Saved ($)</label>
+                    <input type="number" id="goal-current" class="form-control" step="0.01" min="0" value="0" placeholder="0.00" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Deadline</label>
+                    <input type="date" id="goal-deadline" class="form-control" required />
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeGoalModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <style>
+        .modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:1000; }
+        .modal { background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:1.5rem;width:100%;max-width:460px; }
+        .modal-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem; }
+        .modal-header h3 { margin:0;font-size:1.1rem; }
+        .btn-close { background:none;border:none;color:var(--text-muted);font-size:1.5rem;cursor:pointer;line-height:1; }
+        .btn-close:hover { color:var(--text-primary); }
+        .form-actions { display:flex;justify-content:flex-end;gap:0.75rem;margin-top:1.25rem; }
+
+        .goals-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:1rem; }
+
+        .goal-card { background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:1.25rem;transition:border-color 0.2s; }
+        .goal-card:hover { border-color:var(--accent); }
+        .goal-card.on-track { border-left:3px solid #22c55e; }
+        .goal-card.off-track { border-left:3px solid #ef4444; }
+
+        .goal-top { display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.75rem; }
+        .goal-name { font-weight:600;font-size:1.05rem; }
+        .goal-deadline { font-size:0.8rem;color:var(--text-muted); }
+
+        .goal-progress-bar { width:100%;height:12px;background:var(--bg-tertiary);border-radius:6px;overflow:hidden;margin-bottom:0.5rem; }
+        .goal-progress-fill { height:100%;border-radius:6px;transition:width 0.4s ease; }
+
+        .goal-amounts { display:flex;justify-content:space-between;font-size:0.83rem;margin-bottom:0.75rem; }
+        .goal-metrics { display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;font-size:0.82rem;margin-bottom:0.75rem;padding:0.75rem;background:var(--bg-secondary);border-radius:8px; }
+        .goal-metric-label { color:var(--text-muted); }
+        .goal-metric-value { font-weight:600;font-family:var(--font-mono);text-align:right; }
+
+        .goal-suggestions { font-size:0.8rem;padding:0.6rem 0.8rem;background:rgba(99,102,241,0.1);border-radius:8px;border:1px solid rgba(99,102,241,0.2);margin-bottom:0.75rem; }
+        .goal-suggestions-title { font-weight:600;color:var(--accent);margin-bottom:0.3rem; }
+        .goal-suggestion-item { display:flex;justify-content:space-between;padding:0.15rem 0;color:var(--text-secondary); }
+
+        .goal-actions { display:flex;justify-content:flex-end;gap:0.5rem; }
+    </style>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/navbar.js"></script>
+    <script>
+        let goals = [];
+        let editingGoalId = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!requireAuth()) return;
+
+            // Default deadline 6 months ahead
+            const sixMonths = new Date();
+            sixMonths.setMonth(sixMonths.getMonth() + 6);
+            document.getElementById('goal-deadline').value = sixMonths.toISOString().split('T')[0];
+
+            loadGoals();
+        });
+
+        async function loadGoals() {
+            try {
+                goals = await apiGetGoals();
+                // Auto-seed sample goals if none exist
+                if (!goals || goals.length === 0) {
+                    goals = await apiSeedGoals();
+                }
+                renderGoals();
+            } catch (err) {
+                showAlert(document.getElementById('alert-container'), err.message);
+            }
+        }
+
+        function renderGoals() {
+            const grid = document.getElementById('goals-grid');
+            const empty = document.getElementById('empty-state');
+
+            if (!goals || goals.length === 0) {
+                grid.innerHTML = '';
+                empty.classList.remove('hidden');
+                return;
+            }
+
+            empty.classList.add('hidden');
+
+            grid.innerHTML = goals.map(g => {
+                const target = parseFloat(g.target_amount);
+                const current = parseFloat(g.current_amount || 0);
+                const pct = target > 0 ? (current / target * 100) : 0;
+                const onTrack = g.on_track !== false;
+                const barColor = pct >= 100 ? '#22c55e' : onTrack ? '#6366f1' : '#ef4444';
+
+                let metricsHtml = '';
+                if (g.months_remaining !== undefined) {
+                    metricsHtml = `
+                        <div class="goal-metrics">
+                            <span class="goal-metric-label">Months left</span>
+                            <span class="goal-metric-value">${g.months_remaining}</span>
+                            <span class="goal-metric-label">Required/mo</span>
+                            <span class="goal-metric-value">${formatCurrency(g.required_monthly_savings || 0)}</span>
+                            <span class="goal-metric-label">Your current/mo</span>
+                            <span class="goal-metric-value">${formatCurrency(g.current_monthly_savings || 0)}</span>
+                            <span class="goal-metric-label">Gap/mo</span>
+                            <span class="goal-metric-value" style="color:${parseFloat(g.gap || 0) > 0 ? '#ef4444' : '#22c55e'};">${formatCurrency(g.gap || 0)}</span>
+                        </div>
+                    `;
+                }
+
+                let suggestionsHtml = '';
+                if (g.suggested_reductions && g.suggested_reductions.length > 0) {
+                    suggestionsHtml = `
+                        <div class="goal-suggestions">
+                            <div class="goal-suggestions-title">💡 Suggested Reductions</div>
+                            ${g.suggested_reductions.map(s => `
+                                <div class="goal-suggestion-item">
+                                    <span>${s.category}</span>
+                                    <span>Save ${formatCurrency(s.potential_savings)}/mo</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="goal-card ${onTrack ? 'on-track' : 'off-track'}">
+                        <div class="goal-top">
+                            <div>
+                                <div class="goal-name">${g.name}</div>
+                                <div class="goal-deadline">Deadline: ${formatDate(g.target_date)}</div>
+                            </div>
+                            <span class="badge ${onTrack ? 'badge-success' : 'badge-danger'}">${pct >= 100 ? 'Complete!' : onTrack ? 'On Track' : 'Off Track'}</span>
+                        </div>
+                        <div class="goal-progress-bar">
+                            <div class="goal-progress-fill" style="width:${Math.min(pct, 100)}%;background:${barColor};"></div>
+                        </div>
+                        <div class="goal-amounts">
+                            <span class="font-mono">${formatCurrency(current)}</span>
+                            <span class="text-muted">${pct.toFixed(1)}%</span>
+                            <span class="font-mono">${formatCurrency(target)}</span>
+                        </div>
+                        ${metricsHtml}
+                        ${suggestionsHtml}
+                        <div class="goal-actions">
+                            <button class="btn btn-sm btn-secondary" onclick="editGoal('${g.id}')">Edit</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteGoal('${g.id}')">Delete</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openGoalModal(goal = null) {
+            const overlay = document.getElementById('goal-modal-overlay');
+            const title = document.getElementById('goal-modal-title');
+
+            if (goal) {
+                title.textContent = 'Edit Goal';
+                document.getElementById('goal-name').value = goal.name;
+                document.getElementById('goal-target').value = parseFloat(goal.target_amount);
+                document.getElementById('goal-current').value = parseFloat(goal.current_amount || 0);
+                document.getElementById('goal-deadline').value = goal.target_date?.split('T')[0] || '';
+                editingGoalId = goal.id;
+            } else {
+                title.textContent = 'New Goal';
+                document.getElementById('goal-name').value = '';
+                document.getElementById('goal-target').value = '';
+                document.getElementById('goal-current').value = '0';
+                const sixMonths = new Date();
+                sixMonths.setMonth(sixMonths.getMonth() + 6);
+                document.getElementById('goal-deadline').value = sixMonths.toISOString().split('T')[0];
+                editingGoalId = null;
+            }
+
+            overlay.classList.remove('hidden');
+        }
+
+        function closeGoalModal(e) {
+            if (e && e.target !== e.currentTarget) return;
+            document.getElementById('goal-modal-overlay').classList.add('hidden');
+            editingGoalId = null;
+        }
+
+        async function saveGoal(e) {
+            e.preventDefault();
+            const data = {
+                name: document.getElementById('goal-name').value,
+                target_amount: parseFloat(document.getElementById('goal-target').value),
+                current_amount: parseFloat(document.getElementById('goal-current').value),
+                target_date: document.getElementById('goal-deadline').value,
+            };
+
+            try {
+                if (editingGoalId) {
+                    await apiUpdateGoal(editingGoalId, data);
+                } else {
+                    await apiCreateGoal(data);
+                }
+                closeGoalModal();
+                await loadGoals();
+            } catch (err) {
+                showAlert(document.getElementById('alert-container'), err.message);
+            }
+        }
+
+        function editGoal(id) {
+            const g = goals.find(x => x.id === id);
+            if (g) openGoalModal(g);
+        }
+
+        async function deleteGoal(id) {
+            if (!confirm('Delete this goal?')) return;
+            try {
+                await apiDeleteGoal(id);
+                await loadGoals();
+            } catch (err) {
+                showAlert(document.getElementById('alert-container'), err.message);
+            }
+        }
+    </script>
+</body>
+</html>

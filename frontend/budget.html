@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Budget — Financial Intelligence Engine</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="main-content">
+        <div class="page-header">
+            <h1>💰 Budget Manager</h1>
+            <p>Set monthly budgets per category and track your spending</p>
+        </div>
+
+        <div id="alert-container"></div>
+
+        <!-- Month Selector + Add Button -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
+            <div style="display:flex;align-items:center;gap:0.75rem;">
+                <label class="text-muted" style="font-size:0.9rem;">Month:</label>
+                <input type="month" id="budget-month" class="form-control" style="width:auto;" />
+            </div>
+            <button class="btn btn-primary" id="btn-add-budget" onclick="openModal()">+ Add Budget</button>
+        </div>
+
+        <!-- Budget List -->
+        <div id="budget-list">
+            <div class="text-center text-muted" style="padding:3rem;">Loading budgets...</div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="hidden">
+            <div class="empty-state">
+                <div class="empty-icon">💰</div>
+                <div class="empty-title">No budgets set for this month</div>
+                <p class="text-muted">Create a budget to start tracking your spending.</p>
+                <button class="btn btn-primary" style="margin-top:1rem;" onclick="openModal()">Create Budget</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Overlay -->
+    <div id="modal-overlay" class="modal-overlay hidden" onclick="closeModal(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3 id="modal-title">Add Budget</h3>
+                <button class="btn-close" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="budget-form" onsubmit="saveBudget(event)">
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select id="form-category" class="form-control" required>
+                        <option value="">Select category...</option>
+                        <option value="Groceries">Groceries</option>
+                        <option value="Dining">Dining</option>
+                        <option value="Transport">Transport</option>
+                        <option value="Fuel">Fuel</option>
+                        <option value="Utilities">Utilities</option>
+                        <option value="Entertainment">Entertainment</option>
+                        <option value="Shopping">Shopping</option>
+                        <option value="Healthcare">Healthcare</option>
+                        <option value="Insurance">Insurance</option>
+                        <option value="Subscriptions">Subscriptions</option>
+                        <option value="Travel">Travel</option>
+                        <option value="Education">Education</option>
+                        <option value="Personal Care">Personal Care</option>
+                        <option value="Housing">Housing</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Limit ($)</label>
+                    <input type="number" id="form-limit" class="form-control" step="0.01" min="0.01" required placeholder="e.g. 500.00" />
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="btn-save">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <style>
+        .modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:1000; }
+        .modal { background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:1.5rem;width:100%;max-width:420px; }
+        .modal-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem; }
+        .modal-header h3 { margin:0;font-size:1.1rem; }
+        .btn-close { background:none;border:none;color:var(--text-muted);font-size:1.5rem;cursor:pointer;line-height:1; }
+        .btn-close:hover { color:var(--text-primary); }
+        .form-actions { display:flex;justify-content:flex-end;gap:0.75rem;margin-top:1.25rem; }
+
+        .budget-item { display:flex;flex-direction:column;gap:0.5rem;padding:1rem 1.25rem;background:var(--card-bg);border:1px solid var(--border);border-radius:10px;margin-bottom:0.75rem;transition:border-color 0.2s; }
+        .budget-item:hover { border-color:var(--accent); }
+        .budget-item.over-budget { border-left:3px solid var(--danger); }
+        .budget-header { display:flex;justify-content:space-between;align-items:center; }
+        .budget-category { font-weight:600;font-size:1rem; }
+        .budget-actions { display:flex;gap:0.5rem; }
+        .budget-bar-track { width:100%;height:10px;background:var(--bg-tertiary);border-radius:5px;overflow:hidden; }
+        .budget-bar-fill { height:100%;border-radius:5px;transition:width 0.4s ease; }
+        .budget-stats { display:flex;justify-content:space-between;font-size:0.82rem; }
+    </style>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/navbar.js"></script>
+    <script>
+        let budgets = [];
+        let editingId = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!requireAuth()) return;
+
+            // Default to current month
+            const now = new Date();
+            const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            document.getElementById('budget-month').value = monthStr;
+
+            document.getElementById('budget-month').addEventListener('change', loadBudgets);
+            loadBudgets();
+        });
+
+        async function loadBudgets() {
+            const month = document.getElementById('budget-month').value;
+            if (!month) return;
+
+            try {
+                budgets = await apiGetBudgets(month);
+                // Auto-seed sample budgets if none exist for current month
+                if ((!budgets || budgets.length === 0) && month === new Date().toISOString().slice(0, 7)) {
+                    budgets = await apiSeedBudgets();
+                }
+                renderBudgets();
+            } catch (err) {
+                showAlert(document.getElementById('alert-container'), err.message);
+            }
+        }
+
+        function renderBudgets() {
+            const container = document.getElementById('budget-list');
+            const emptyState = document.getElementById('empty-state');
+
+            if (!budgets || budgets.length === 0) {
+                container.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+
+            container.innerHTML = budgets.map(b => {
+                const limit = parseFloat(b.amount_limit);
+                const actual = parseFloat(b.actual_spent || 0);
+                const pct = limit > 0 ? (actual / limit * 100) : 0;
+                const overBudget = pct > 100;
+                const barColor = pct > 100 ? '#ef4444' : pct > 80 ? '#f59e0b' : '#22c55e';
+
+                return `
+                    <div class="budget-item ${overBudget ? 'over-budget' : ''}">
+                        <div class="budget-header">
+                            <div>
+                                <span class="budget-category">${b.category}</span>
+                                ${overBudget ? '<span class="badge badge-danger" style="margin-left:0.5rem;">Over Budget</span>' : ''}
+                            </div>
+                            <div class="budget-actions">
+                                <button class="btn btn-sm btn-secondary" onclick="editBudget('${b.id}')">Edit</button>
+                                <button class="btn btn-sm btn-danger" onclick="deleteBudget('${b.id}')">Delete</button>
+                            </div>
+                        </div>
+                        <div class="budget-bar-track">
+                            <div class="budget-bar-fill" style="width:${Math.min(pct, 100)}%;background:${barColor};"></div>
+                        </div>
+                        <div class="budget-stats">
+                            <span class="text-muted">${formatCurrency(actual)} of ${formatCurrency(limit)}</span>
+                            <span class="font-mono" style="color:${barColor};font-weight:600;">${pct.toFixed(1)}%</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openModal(budget = null) {
+            const overlay = document.getElementById('modal-overlay');
+            const title = document.getElementById('modal-title');
+            const catInput = document.getElementById('form-category');
+            const limitInput = document.getElementById('form-limit');
+
+            if (budget) {
+                title.textContent = 'Edit Budget';
+                catInput.value = budget.category;
+                catInput.disabled = true;
+                limitInput.value = parseFloat(budget.amount_limit);
+                editingId = budget.id;
+            } else {
+                title.textContent = 'Add Budget';
+                catInput.value = '';
+                catInput.disabled = false;
+                limitInput.value = '';
+                editingId = null;
+            }
+
+            overlay.classList.remove('hidden');
+        }
+
+        function closeModal(e) {
+            if (e && e.target !== e.currentTarget) return;
+            document.getElementById('modal-overlay').classList.add('hidden');
+            editingId = null;
+        }
+
+        async function saveBudget(e) {
+            e.preventDefault();
+            const month = document.getElementById('budget-month').value;
+            const category = document.getElementById('form-category').value;
+            const amount_limit = parseFloat(document.getElementById('form-limit').value);
+
+            try {
+                if (editingId) {
+                    await apiUpdateBudget(editingId, { amount_limit });
+                } else {
+                    await apiCreateBudget({ category, month, amount_limit });
+                }
+                closeModal();
+                await loadBudgets();
+            } catch (err) {
+                showAlert(document.getElementById('alert-container'), err.message);
+            }
+        }
+
+        function editBudget(id) {
+            const b = budgets.find(x => x.id === id);
+            if (b) openModal(b);
+        }
+
+        async function deleteBudget(id) {
+            if (!confirm('Delete this budget?')) return;
+            try {
+                await apiDeleteBudget(id);
+                await loadBudgets();
+            } catch (err) {
+                showAlert(document.getElementById('alert-container'), err.message);
+            }
+        }
+    </script>
+</body>
+</html>

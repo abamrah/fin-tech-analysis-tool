@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financial Intelligence Engine</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card" style="max-width:520px;">
+            <h1>💹 Financial Intelligence Engine</h1>
+            <p class="auth-subtitle">AI-powered financial analysis, budgeting, and advisory platform</p>
+
+            <div style="display:flex;flex-direction:column;gap:0.75rem;margin-top:2rem;">
+                <a href="/login.html" class="btn btn-primary btn-block" style="font-size:1rem;padding:0.85rem;">
+                    Sign In
+                </a>
+                <a href="/register.html" class="btn btn-secondary btn-block" style="font-size:1rem;padding:0.85rem;">
+                    Create Account
+                </a>
+            </div>
+
+            <div style="margin-top:2.5rem;padding-top:1.5rem;border-top:1px solid var(--border);">
+                <h4 style="margin-bottom:1rem;color:var(--text-secondary);">Features</h4>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;font-size:0.85rem;color:var(--text-muted);">
+                    <div>📄 PDF Statement Parsing</div>
+                    <div>🏷️ Auto-Categorization</div>
+                    <div>📊 Analytics Dashboard</div>
+                    <div>🔄 Recurring Detection</div>
+                    <div>💰 Budget Tracking</div>
+                    <div>🎯 Savings Goals</div>
+                    <div>⚠️ Anomaly Alerts</div>
+                    <div>🤖 AI Financial Advisor</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="/js/api.js"></script>
+    <script>
+        // Redirect to dashboard if already logged in
+        if (isAuthenticated()) {
+            window.location.href = '/dashboard.html';
+        }
+    </script>
+</body>
+</html>

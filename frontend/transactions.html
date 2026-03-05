@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transactions — Financial Intelligence Engine</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        .filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            align-items: flex-end;
+            margin-bottom: 1.5rem;
+            padding: 1.25rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+        }
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+        .filter-group label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+        .filter-group select,
+        .filter-group input {
+            padding: 0.5rem 0.75rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            outline: none;
+            min-width: 140px;
+        }
+        .filter-group select:focus,
+        .filter-group input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent-light);
+        }
+        .filter-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: flex-end;
+        }
+        .txn-badges {
+            display: flex;
+            gap: 0.35rem;
+            flex-wrap: wrap;
+        }
+        .badge-transfer {
+            background: rgba(139, 92, 246, 0.15);
+            color: #a78bfa;
+        }
+        .badge-duplicate {
+            background: rgba(251, 146, 60, 0.15);
+            color: #fb923c;
+        }
+        .badge-in {
+            background: var(--success-light);
+            color: var(--success);
+        }
+        .badge-out {
+            background: var(--danger-light);
+            color: var(--danger);
+        }
+        .badge-bank {
+            background: rgba(148,163,184,0.12);
+            color: var(--text-secondary);
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+            padding: 1rem;
+        }
+        .pagination .page-info {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-variant-numeric: tabular-nums;
+        }
+        .summary-bar {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        .summary-bar .stat {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .summary-bar .stat-value {
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .merchant-col {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .desc-col {
+            max-width: 280px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        .amount-in { color: var(--success); font-weight: 600; }
+        .amount-out { color: var(--danger); font-weight: 600; }
+        .inline-select {
+            padding: 0.25rem 0.4rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-size: 0.75rem;
+            cursor: pointer;
+            max-width: 130px;
+        }
+        .inline-select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent-light);
+        }
+        .inline-select.saving {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        .planner-badge {
+            display: inline-block;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.72rem;
+            font-weight: 600;
+        }
+        .pc-income { background: rgba(34,197,94,0.15); color: #22c55e; }
+        .pc-needs { background: rgba(59,130,246,0.15); color: #3b82f6; }
+        .pc-wants { background: rgba(245,158,11,0.15); color: #f59e0b; }
+        .pc-bills { background: rgba(168,85,247,0.15); color: #a855f7; }
+        .pc-subscriptions { background: rgba(236,72,153,0.15); color: #ec4899; }
+        .pc-insurance { background: rgba(20,184,166,0.15); color: #14b8a6; }
+        .pc-savings { background: rgba(99,102,241,0.15); color: #6366f1; }
+        .pc-transfer { background: rgba(139,92,246,0.15); color: #a78bfa; }
+        .pc-ignore { background: rgba(148,163,184,0.15); color: #94a3b8; }
+        @media (max-width: 768px) {
+            .filter-bar { flex-direction: column; }
+            .filter-group select,
+            .filter-group input { min-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-content">
+        <div class="page-header">
+            <h1>💳 Transactions</h1>
+            <p>Browse, search, and filter all your transactions</p>
+        </div>
+
+        <div id="alert-container"></div>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar" id="filter-bar">
+            <div class="filter-group">
+                <label>Date From</label>
+                <input type="date" id="filter-date-from">
+            </div>
+            <div class="filter-group">
+                <label>Date To</label>
+                <input type="date" id="filter-date-to">
+            </div>
+            <div class="filter-group">
+                <label>Direction</label>
+                <select id="filter-direction">
+                    <option value="">All</option>
+                    <option value="in">Income</option>
+                    <option value="out">Expense</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Account Type</label>
+                <select id="filter-account-type">
+                    <option value="">All</option>
+                    <option value="checking">Chequing</option>
+                    <option value="credit">Credit</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Category</label>
+                <select id="filter-category">
+                    <option value="">All Categories</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Merchant</label>
+                <input type="text" id="filter-merchant" placeholder="Search merchant…">
+            </div>
+            <div class="filter-group">
+                <label>Flags</label>
+                <select id="filter-flags">
+                    <option value="">All</option>
+                    <option value="recurring">🔄 Recurring</option>
+                    <option value="anomaly">⚠️ Anomalies</option>
+                    <option value="transfer">🔀 Transfers</option>
+                    <option value="exclude_transfers">🚫 No Transfers</option>
+                    <option value="duplicate">📋 Duplicates</option>
+                    <option value="exclude_duplicates">🚫 No Duplicates</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Planner Cat</label>
+                <select id="filter-planner-category">
+                    <option value="">All</option>
+                    <option value="Income">Income</option>
+                    <option value="Needs">Needs</option>
+                    <option value="Wants">Wants</option>
+                    <option value="Bills">Bills</option>
+                    <option value="Subscriptions">Subscriptions</option>
+                    <option value="Insurance">Insurance</option>
+                    <option value="Savings">Savings</option>
+                    <option value="Transfer">Transfer</option>
+                    <option value="Ignore">Ignore</option>
+                </select>
+            </div>
+            <div class="filter-actions">
+                <button class="btn btn-primary btn-sm" onclick="applyFilters()">Apply</button>
+                <button class="btn btn-secondary btn-sm" onclick="clearFilters()">Clear</button>
+                <button class="btn btn-secondary btn-sm" onclick="bulkAssignPlannerCategories()" title="Auto-assign planner categories to all transactions">🏷️ Auto-Tag</button>
+            </div>
+        </div>
+
+        <!-- Summary Bar -->
+        <div class="summary-bar" id="summary-bar">
+            <div class="stat">Showing <span class="stat-value" id="summary-showing">0</span> of <span class="stat-value" id="summary-total">0</span></div>
+            <div class="stat">Income: <span class="stat-value text-success" id="summary-income">$0.00</span></div>
+            <div class="stat">Expenses: <span class="stat-value text-danger" id="summary-expenses">$0.00</span></div>
+            <div class="stat">Net: <span class="stat-value" id="summary-net">$0.00</span></div>
+            <div class="stat" id="summary-transfer-stat" style="display:none;">Transfers: <span class="stat-value" style="color:#a78bfa;" id="summary-transfers">$0.00</span></div>
+        </div>
+
+        <!-- Transactions Table -->
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Merchant</th>
+                        <th>Description</th>
+                        <th style="text-align:right;">Amount</th>
+                        <th>Category</th>
+                        <th>Planner</th>
+                        <th>Bank / Account</th>
+                        <th>Flags</th>
+                    </tr>
+                </thead>
+                <tbody id="txn-table">
+                    <tr><td colspan="8" class="text-center text-muted" style="padding:3rem;">Loading transactions...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination" id="pagination">
+            <button class="btn btn-secondary btn-sm" id="btn-prev" disabled>← Prev</button>
+            <span class="page-info" id="page-info">Page 1</span>
+            <button class="btn btn-secondary btn-sm" id="btn-next" disabled>Next →</button>
+        </div>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="hidden">
+            <div class="empty-state">
+                <div class="empty-icon">📄</div>
+                <div class="empty-title">No transactions found</div>
+                <p class="text-muted">Upload a bank statement or adjust your filters.</p>
+                <a href="/upload.html" class="btn btn-primary" style="margin-top:1rem;">Upload Statement</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/navbar.js"></script>
+    <script>
+        // ─── State ──────────────────────────────
+        let currentPage = 1;
+        const perPage = 50;
+        let totalCount = 0;
+        let allCategories = [];
+        const PLANNER_CATEGORIES = ['Income','Needs','Wants','Bills','Subscriptions','Insurance','Savings','Transfer','Ignore'];
+        const ALL_CATEGORIES = ['Income','Housing','Groceries','Dining','Transport','Fuel','Utilities','Subscriptions','Insurance','Shopping','Entertainment','Healthcare','Education','Personal Care','Travel','Investments','Transfers','Debt','Bank Fees','Other'];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!requireAuth()) return;
+            await loadFilterOptions();
+            await loadTransactions();
+
+            // Bind pagination
+            document.getElementById('btn-prev').addEventListener('click', () => {
+                if (currentPage > 1) { currentPage--; loadTransactions(); }
+            });
+            document.getElementById('btn-next').addEventListener('click', () => {
+                if (currentPage * perPage < totalCount) { currentPage++; loadTransactions(); }
+            });
+
+            // Merchant search debounce
+            document.getElementById('filter-merchant').addEventListener('input', debounce(() => {
+                currentPage = 1;
+                loadTransactions();
+            }, 500));
+        });
+
+        // ─── Load Filter Options ────────────────
+        async function loadFilterOptions() {
+            try {
+                const filters = await apiGetTransactionFilters();
+                allCategories = filters.categories;
+                const catSelect = document.getElementById('filter-category');
+                filters.categories.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c;
+                    opt.textContent = c;
+                    catSelect.appendChild(opt);
+                });
+            } catch (err) {
+                console.warn('Could not load filter options:', err);
+            }
+        }
+
+        // ─── Build Query Params ─────────────────
+        function getFilterParams() {
+            const params = { page: currentPage, per_page: perPage };
+
+            const dateFrom = document.getElementById('filter-date-from').value;
+            const dateTo = document.getElementById('filter-date-to').value;
+            const direction = document.getElementById('filter-direction').value;
+            const accountType = document.getElementById('filter-account-type').value;
+            const category = document.getElementById('filter-category').value;
+            const plannerCategory = document.getElementById('filter-planner-category').value;
+            const merchant = document.getElementById('filter-merchant').value.trim();
+            const flags = document.getElementById('filter-flags').value;
+
+            if (dateFrom) params.date_from = dateFrom;
+            if (dateTo) params.date_to = dateTo;
+            if (direction) params.direction = direction;
+            if (accountType) params.account_type = accountType;
+            if (category) params.category = category;
+            if (plannerCategory) params.planner_category = plannerCategory;
+            if (merchant) params.merchant = merchant;
+            if (flags === 'recurring') params.recurring_only = true;
+            if (flags === 'anomaly') params.anomaly_only = true;
+            if (flags === 'transfer') params.transfer_only = true;
+            if (flags === 'exclude_transfers') params.exclude_transfers = true;
+            if (flags === 'duplicate') params.duplicate_only = true;
+            if (flags === 'exclude_duplicates') params.exclude_duplicates = true;
+
+            return params;
+        }
+
+        // ─── Load Transactions ──────────────────
+        async function loadTransactions() {
+            try {
+                const params = getFilterParams();
+                // Build summary params — same filters minus pagination
+                const summaryParams = { ...params };
+                delete summaryParams.page;
+                delete summaryParams.per_page;
+
+                const [data, summary] = await Promise.all([
+                    apiGetTransactions(params),
+                    apiGetTransactionSummary(summaryParams),
+                ]);
+
+                totalCount = data.total;
+
+                // Update summary bar
+                document.getElementById('summary-showing').textContent = data.transactions.length;
+                document.getElementById('summary-total').textContent = data.total;
+                document.getElementById('summary-income').textContent = formatCurrency(summary.total_income);
+                document.getElementById('summary-expenses').textContent = formatCurrency(summary.total_expenses);
+
+                const netEl = document.getElementById('summary-net');
+                netEl.textContent = formatCurrency(summary.net_cash_flow);
+                netEl.className = `stat-value ${parseFloat(summary.net_cash_flow) >= 0 ? 'text-success' : 'text-danger'}`;
+
+                const transferTotal = parseFloat(summary.transfer_total || 0);
+                if (transferTotal > 0) {
+                    document.getElementById('summary-transfer-stat').style.display = '';
+                    document.getElementById('summary-transfers').textContent = formatCurrency(transferTotal);
+                }
+
+                // Render table
+                renderTable(data.transactions);
+
+                // Pagination
+                updatePagination();
+
+                // Empty state
+                const emptyState = document.getElementById('empty-state');
+                const tableContainer = document.querySelector('.table-container');
+                if (data.total === 0) {
+                    emptyState.classList.remove('hidden');
+                    tableContainer.style.display = 'none';
+                    document.getElementById('pagination').style.display = 'none';
+                } else {
+                    emptyState.classList.add('hidden');
+                    tableContainer.style.display = '';
+                    document.getElementById('pagination').style.display = '';
+                }
+
+            } catch (err) {
+                showAlert(document.getElementById('alert-container'), err.message);
+            }
+        }
+
+        // ─── Render Table ───────────────────────
+        function renderTable(transactions) {
+            const tbody = document.getElementById('txn-table');
+
+            if (!transactions || transactions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted" style="padding:3rem;">No transactions match your filters</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = transactions.map(t => {
+                const amountClass = t.direction === 'in' ? 'amount-in' : 'amount-out';
+                const amountPrefix = t.direction === 'in' ? '+' : '-';
+                const dirBadge = t.direction === 'in'
+                    ? '<span class="badge badge-in">IN</span>'
+                    : '<span class="badge badge-out">OUT</span>';
+
+                // Account / bank info
+                const bankName = t.institution_name || 'Unknown';
+                const acctType = t.account_type === 'checking' ? 'Chequing' : 'Credit';
+                const acctLabel = t.account_label ? ` · ${t.account_label}` : '';
+
+                // Flags
+                let flags = [];
+                if (t.is_duplicate) flags.push('<span class="badge badge-duplicate">📋 Duplicate</span>');
+                if (t.is_transfer) flags.push('<span class="badge badge-transfer">🔀 Transfer</span>');
+                if (t.recurring_flag) flags.push('<span class="badge badge-accent">🔄 Recurring</span>');
+                if (t.anomaly_flag) flags.push('<span class="badge badge-warning">⚠️ Anomaly</span>');
+
+                // Category dropdown options
+                const catOpts = ALL_CATEGORIES.map(c =>
+                    `<option value="${c}" ${c === t.category ? 'selected' : ''}>${c}</option>`
+                ).join('');
+
+                const pcVal = t.planner_category || '';
+                const pcOpts = PLANNER_CATEGORIES.map(pc =>
+                    `<option value="${pc}" ${pc === pcVal ? 'selected' : ''}>${pc}</option>`
+                ).join('');
+                const pcClass = pcVal ? `pc-${pcVal.toLowerCase()}` : '';
+
+                return `<tr${t.is_transfer ? ' style="opacity:0.7;"' : ''}${t.is_duplicate ? ' style="opacity:0.5;text-decoration:line-through;"' : ''}>
+                    <td style="white-space:nowrap;">${formatDate(t.date)}</td>
+                    <td class="merchant-col" style="font-weight:500;color:var(--text-primary);">
+                        ${t.merchant_clean || '—'}
+                    </td>
+                    <td class="desc-col" title="${escapeHtml(t.description_raw)}">
+                        ${escapeHtml(t.description_raw)}
+                    </td>
+                    <td class="text-right font-mono ${amountClass}" style="white-space:nowrap;">
+                        ${amountPrefix}${formatCurrency(t.amount)}
+                    </td>
+                    <td>
+                        <select class="inline-select" onchange="updateTxnCategory('${t.id}', this.value)">
+                            ${catOpts}
+                        </select>
+                    </td>
+                    <td>
+                        <select class="inline-select ${pcClass}" onchange="updateTxnPlannerCategory('${t.id}', this.value, this)">
+                            <option value="">—</option>
+                            ${pcOpts}
+                        </select>
+                    </td>
+                    <td>
+                        <div style="font-size:0.85rem;font-weight:500;color:var(--text-primary);">${escapeHtml(bankName)}</div>
+                        <div class="text-xs text-muted">${acctType}${acctLabel}</div>
+                    </td>
+                    <td>
+                        <div class="txn-badges">
+                            ${dirBadge}
+                            ${flags.join('')}
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        // ─── Pagination ─────────────────────────
+        function updatePagination() {
+            const totalPages = Math.max(1, Math.ceil(totalCount / perPage));
+            document.getElementById('page-info').textContent = `Page ${currentPage} of ${totalPages}`;
+            document.getElementById('btn-prev').disabled = currentPage <= 1;
+            document.getElementById('btn-next').disabled = currentPage >= totalPages;
+        }
+
+        // ─── Filter Actions ─────────────────────
+        function applyFilters() {
+            currentPage = 1;
+            loadTransactions();
+        }
+
+        function clearFilters() {
+            document.getElementById('filter-date-from').value = '';
+            document.getElementById('filter-date-to').value = '';
+            document.getElementById('filter-direction').value = '';
+            document.getElementById('filter-account-type').value = '';
+            document.getElementById('filter-category').value = '';
+            document.getElementById('filter-merchant').value = '';
+            document.getElementById('filter-flags').value = '';
+            document.getElementById('filter-planner-category').value = '';
+            currentPage = 1;
+            loadTransactions();
+        }
+
+        // ─── Inline Edit Handlers ───────────────
+        async function updateTxnCategory(txnId, newCategory) {
+            try {
+                await apiUpdateTransaction(txnId, { category: newCategory });
+            } catch (err) {
+                showAlert(document.getElementById('alert-container'), 'Failed to update category: ' + err.message);
+                loadTransactions();
+            }
+        }
+
+        async function updateTxnPlannerCategory(txnId, newPlannerCat, selectEl) {
+            selectEl.classList.add('saving');
+            try {
+                await apiUpdateTransaction(txnId, { planner_category: newPlannerCat });
+                // Update visual class
+                selectEl.className = `inline-select pc-${newPlannerCat.toLowerCase()}`;
+            } catch (err) {
+                showAlert(document.getElementById('alert-container'), 'Failed to update planner category: ' + err.message);
+                loadTransactions();
+            }
+            selectEl.classList.remove('saving');
+        }
+
+        async function bulkAssignPlannerCategories() {
+            try {
+                const result = await apiAssignPlannerCategories();
+                showAlert(document.getElementById('alert-container'),
+                    `Auto-tagged ${result.updated} transactions with planner categories`, 'success');
+                await loadTransactions();
+            } catch (err) {
+                showAlert(document.getElementById('alert-container'), err.message);
+            }
+        }
+
+        // ─── Utility ────────────────────────────
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+    </script>
+</body>
+</html>

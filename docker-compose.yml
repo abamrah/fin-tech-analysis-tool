@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fintech-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fintech}
+      POSTGRES_USER: ${POSTGRES_USER:-fintech}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fintech_pass}
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fintech} -d ${POSTGRES_DB:-fintech_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: fintech-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fintech}:${POSTGRES_PASSWORD:-fintech_pass}@postgres:5432/${POSTGRES_DB:-fintech}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-fintech}:${POSTGRES_PASSWORD:-fintech_pass}@postgres:5432/${POSTGRES_DB:-fintech}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/app/uploads
+
+volumes:
+  pgdata:

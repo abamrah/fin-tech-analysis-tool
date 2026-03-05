@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — Financial Intelligence Engine</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <h1>💹 Sign In</h1>
+            <p class="auth-subtitle">Welcome back to Financial Intelligence Engine</p>
+
+            <div id="alert-container"></div>
+
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" class="form-input" placeholder="you@example.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" class="form-input" placeholder="••••••••" required minlength="8">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block" id="login-btn">
+                    Sign In
+                </button>
+            </form>
+
+            <div class="auth-footer">
+                Don't have an account? <a href="/register.html">Create one</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script>
+        // Redirect if already logged in
+        if (isAuthenticated()) {
+            window.location.href = '/dashboard.html';
+        }
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('login-btn');
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner"></span> Signing in...';
+
+            try {
+                await apiLogin(email, password);
+                window.location.href = '/dashboard.html';
+            } catch (err) {
+                showAlert(document.getElementById('alert-container'), err.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Sign In';
+            }
+        });
+    </script>
+</body>
+</html>
