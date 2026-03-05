@@ -206,6 +206,7 @@ class GoalOut(BaseModel):
 
 class AdvisorQuery(BaseModel):
     query: str = Field(..., min_length=1, max_length=2000)
+    conversation_id: Optional[str] = None  # for conversation memory
 
 
 class AdvisorAction(BaseModel):
@@ -218,6 +219,7 @@ class AdvisorResponse(BaseModel):
     response: str
     summary: dict = {}
     actions_taken: List[AdvisorAction] = []
+    conversation_id: Optional[str] = None  # for conversation memory
 
 
 # ─── Account ─────────────────────────────────────────────────────

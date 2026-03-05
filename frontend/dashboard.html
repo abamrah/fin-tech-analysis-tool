@@ -240,20 +240,12 @@
                 const transferTotal = parseFloat(overview.transfer_total || 0);
                 document.getElementById('kpi-transfers').textContent = formatCurrency(transferTotal);
 
-                // Monthly Trend bar chart
-                renderMonthlyTrend(monthly);
-
-                // Category pie chart
-                renderCategoryPie(categories);
-
-                // Merchants table
-                renderMerchants(merchants);
-
-                // Recurring payments
-                renderRecurring(recurring);
-
-                // Anomalies
-                renderAnomalies(anomalies);
+                // Render each section independently — one failure shouldn't block others
+                try { renderMonthlyTrend(monthly); } catch(e) { console.error('Monthly chart error:', e); }
+                try { renderCategoryPie(categories); } catch(e) { console.error('Category chart error:', e); }
+                try { renderMerchants(merchants); } catch(e) { console.error('Merchants error:', e); }
+                try { renderRecurring(recurring); } catch(e) { console.error('Recurring error:', e); }
+                try { renderAnomalies(anomalies); } catch(e) { console.error('Anomalies error:', e); }
 
             } catch (err) {
                 showAlert(document.getElementById('alert-container'), err.message);
@@ -261,13 +253,25 @@
         }
 
         function renderMonthlyTrend(monthly) {
+            if (monthlyChart) { monthlyChart.destroy(); monthlyChart = null; }
             const canvas = document.getElementById('chart-monthly-trend');
-            if (monthlyChart) monthlyChart.destroy();
+            if (!canvas) return;
+
+            // Remove any previous "no data" overlay
+            const existingMsg = canvas.parentElement.querySelector('.no-data-msg');
+            if (existingMsg) existingMsg.remove();
 
             if (!monthly || monthly.length === 0) {
-                canvas.parentElement.innerHTML = '<div class="text-center text-muted" style="padding:3rem;">No monthly data yet</div>';
+                canvas.style.display = 'none';
+                const msg = document.createElement('div');
+                msg.className = 'no-data-msg text-center text-muted';
+                msg.style.cssText = 'padding:3rem;';
+                msg.textContent = 'No monthly data yet';
+                canvas.parentElement.appendChild(msg);
                 return;
             }
+
+            canvas.style.display = '';
 
             const labels = monthly.map(m => m.month);
             const incomeData = monthly.map(m => parseFloat(m.income));
@@ -307,13 +311,25 @@
         }
 
         function renderCategoryPie(categories) {
+            if (categoryChart) { categoryChart.destroy(); categoryChart = null; }
             const canvas = document.getElementById('chart-categories');
-            if (categoryChart) categoryChart.destroy();
+            if (!canvas) return;
+
+            // Remove any previous "no data" overlay
+            const existingMsg = canvas.parentElement.querySelector('.no-data-msg');
+            if (existingMsg) existingMsg.remove();
 
             if (!categories || categories.length === 0) {
-                canvas.parentElement.innerHTML = '<div class="text-center text-muted" style="padding:3rem;">No category data</div>';
+                canvas.style.display = 'none';
+                const msg = document.createElement('div');
+                msg.className = 'no-data-msg text-center text-muted';
+                msg.style.cssText = 'padding:3rem;';
+                msg.textContent = 'No category data';
+                canvas.parentElement.appendChild(msg);
                 return;
             }
+
+            canvas.style.display = '';
 
             const COLORS = ['#6366f1','#22c55e','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#14b8a6','#f97316','#64748b','#a855f7','#eab308'];
 

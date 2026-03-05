@@ -6,9 +6,11 @@ Identifies recurring payments by analyzing:
 - Similar amounts (±10% tolerance)
 - Regular intervals (weekly / bi-weekly / monthly cycles)
 - Subscription-category transactions (auto-flagged as recurring)
+- Fuzzy merchant merging (e.g., "Mortgage Payment" + "Mortgagepayment")
 """
 
 import logging
+import re
 from collections import defaultdict
 from datetime import date, timedelta
 from decimal import Decimal
@@ -38,6 +40,85 @@ SUBSCRIPTION_MERCHANTS = {
     "gym", "insurance", "rogers", "bell", "telus", "fido",
     "koodo", "virgin mobile", "freedom mobile", "hydro", "enbridge",
 }
+
+
+def _normalize_merchant_key(name: str) -> str:
+    """
+    Create a normalized key for grouping similar merchants.
+    Strips numbers, extra whitespace, special chars; lowercases.
+    e.g. "La Fitness 949-255-8100 Total New Balance $1,759.75" → "la fitness"
+         "Mortgagepayment" → "mortgagepayment"
+         "Mortgage Payment" → "mortgage payment"
+    """
+    if not name:
+        return ""
+    key = name.lower().strip()
+    # Remove dollar amounts like $1,759.75
+    key = re.sub(r'\$[\d,]+\.?\d*', '', key)
+    # Remove standalone numbers and number sequences (phone numbers, account numbers)
+    key = re.sub(r'\b\d[\d\-\.]*\b', '', key)
+    # Remove "total", "new balance", "balance" (statement artifacts)
+    key = re.sub(r'\b(total|new balance|balance)\b', '', key, flags=re.I)
+    # Remove special chars except spaces
+    key = re.sub(r'[^a-z\s]', '', key)
+    # Collapse whitespace
+    key = re.sub(r'\s+', ' ', key).strip()
+    return key
+
+
+def _merge_recurring_entries(payments: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Merge recurring payment entries that have similar merchant names.
+    Groups by normalized merchant key, picks the best display name,
+    and sums counts/amounts.
+    """
+    if not payments:
+        return payments
+
+    groups: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    for p in payments:
+        key = _normalize_merchant_key(p["merchant"])
+        if not key:
+            key = p["merchant"].lower()
+        groups[key].append(p)
+
+    merged = []
+    for key, group in groups.items():
+        if len(group) == 1:
+            merged.append(group[0])
+            continue
+
+        # Merge: pick shortest name as display, sum counts, weighted avg amount
+        group.sort(key=lambda x: x["transaction_count"], reverse=True)
+        best = group[0]  # most transactions = best representative
+
+        total_txns = sum(g["transaction_count"] for g in group)
+        weighted_amount = sum(
+            float(g["average_amount"]) * g["transaction_count"] for g in group
+        ) / total_txns if total_txns else float(best["average_amount"])
+
+        # Pick the cleanest/shortest name
+        display_name = min(
+            [g["merchant"] for g in group],
+            key=lambda n: (len(n), n.lower()),
+        )
+
+        # Use most recent last_date and most common interval
+        latest_date = max(g["last_date"] for g in group)
+        avg_freq = sum(g["frequency_days"] * g["transaction_count"] for g in group) / total_txns
+
+        merged.append({
+            "merchant": display_name,
+            "average_amount": Decimal(str(round(weighted_amount, 2))),
+            "frequency_days": round(avg_freq, 1),
+            "last_date": latest_date,
+            "category": best["category"],
+            "transaction_count": total_txns,
+        })
+
+    # Sort by amount descending
+    merged.sort(key=lambda x: float(x["average_amount"]), reverse=True)
+    return merged
 
 
 async def detect_recurring(
@@ -143,6 +224,9 @@ async def detect_recurring(
         )
     await db.flush()
     logger.info(f"Flagged {len(recurring_txn_ids)} recurring transactions for user {user_id}")
+
+    # Merge similar merchants (e.g. "Mortgage Payment" + "Mortgagepayment")
+    recurring_payments = _merge_recurring_entries(recurring_payments)
 
     return recurring_payments
 

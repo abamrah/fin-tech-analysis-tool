@@ -249,8 +249,14 @@ async function apiDeleteGoal(id) {
 
 // ─── Advisor API ───────────────────────────
 
-async function apiQueryAdvisor(query) {
-    return fetchAPI('/advisor/query', { method: 'POST', body: { query } });
+async function apiQueryAdvisor(query, conversationId = null) {
+    const body = { query };
+    if (conversationId) body.conversation_id = conversationId;
+    return fetchAPI('/advisor/query', { method: 'POST', body });
+}
+
+async function apiClearAdvisorConversations() {
+    return fetchAPI('/advisor/conversations', { method: 'DELETE' });
 }
 
 // ─── Financial Planner API ─────────────────

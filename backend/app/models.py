@@ -34,6 +34,7 @@ class User(Base):
     budgets = relationship("Budget", back_populates="user", cascade="all, delete-orphan")
     goals = relationship("Goal", back_populates="user", cascade="all, delete-orphan")
     financial_plan = relationship("FinancialPlan", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    advisor_conversations = relationship("AdvisorConversation", back_populates="user", cascade="all, delete-orphan")
 
 
 class Account(Base):
@@ -171,6 +172,24 @@ class MerchantCategoryMap(Base):
     source = Column(String(20), nullable=False)  # "rule" | "llm"
     confidence = Column(Float, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class AdvisorConversation(Base):
+    """Stores advisor chat conversation history for memory."""
+    __tablename__ = "advisor_conversations"
+
+    id = Column(UUID(as_uuid=False), primary_key=True, default=generate_uuid)
+    user_id = Column(
+        UUID(as_uuid=False),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    messages = Column(JSON, nullable=False, default=list)  # [{role, content}]
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    user = relationship("User", back_populates="advisor_conversations")
 
 
 class FinancialPlan(Base):

@@ -212,9 +212,11 @@ async def monthly_summary(
     if date_to:
         filters.append(Transaction.date <= date_to)
 
+    month_expr = func.to_char(Transaction.date, 'YYYY-MM')
+
     result = await db.execute(
         select(
-            func.to_char(Transaction.date, 'YYYY-MM').label("month"),
+            month_expr.label("month"),
             func.sum(
                 case(
                     (and_(Transaction.direction == "in", Transaction.is_transfer == False, Transaction.is_duplicate == False), Transaction.amount),
@@ -229,8 +231,8 @@ async def monthly_summary(
             ).label("expenses"),
         )
         .where(and_(*filters))
-        .group_by(func.to_char(Transaction.date, 'YYYY-MM'))
-        .order_by(desc("month"))
+        .group_by(month_expr)
+        .order_by(month_expr.desc())
         .limit(months)
     )
     rows = result.all()

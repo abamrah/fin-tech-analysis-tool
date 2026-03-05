@@ -11,7 +11,7 @@
     <div class="main-content">
         <div class="page-header">
             <h1>🤖 AI Financial Agent</h1>
-            <p>Powered by Gemini — full access to your finances with read/write capabilities</p>
+            <p>Powered by Gemini — full access to your finances with read/write capabilities &amp; conversation memory</p>
         </div>
 
         <div id="alert-container"></div>
@@ -39,6 +39,7 @@
                 <form class="chat-input-form" id="chat-form" onsubmit="sendMessage(event)">
                     <input type="text" id="chat-input" class="form-control" placeholder="Ask about your finances or request changes..." autocomplete="off" />
                     <button type="submit" class="btn btn-primary" id="btn-send">Send</button>
+                    <button type="button" class="btn btn-secondary" onclick="startNewChat()" title="Start new conversation" style="padding:0.5rem 0.75rem;font-size:0.85rem;">New Chat</button>
                 </form>
             </div>
 
@@ -68,6 +69,18 @@
                         <button class="quick-q action-q" onclick="askQuick('Create a 3-month action plan to help me save more money. Set concrete goals.')">Create savings plan</button>
                         <button class="quick-q action-q" onclick="askQuick('Auto-assign planner categories to all my transactions that are missing them.')">Tag all transactions</button>
                         <button class="quick-q action-q" onclick="askQuick('Analyze my financial plan and update the planner with accurate numbers from my transactions.')">Sync planner data</button>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top:0.75rem;">
+                    <div class="card-header">
+                        <span class="card-title">🏦 Bank & Net Worth</span>
+                    </div>
+                    <div class="quick-questions">
+                        <button class="quick-q" onclick="askQuick('Break down banking fees by bank and number of transactions so I can consider consolidating accounts.')">Bank fees by institution</button>
+                        <button class="quick-q" onclick="askQuick('Show me a summary of all my bank accounts with transaction counts, income, and expenses per institution.')">Accounts overview</button>
+                        <button class="quick-q" onclick="askQuick('What is my current net worth? Break it down by assets, savings, loans, and rental properties.')">Net worth breakdown</button>
+                        <button class="quick-q" onclick="askQuick('Analyze my rental property financials — income vs expenses vs mortgage. Is it profitable?')">Rental property analysis</button>
                     </div>
                 </div>
             </div>
@@ -233,6 +246,7 @@
     <script src="/js/navbar.js"></script>
     <script>
         let isLoading = false;
+        let conversationId = null;  // Track current conversation for memory
 
         document.addEventListener('DOMContentLoaded', () => {
             if (!requireAuth()) return;
@@ -261,8 +275,13 @@
             const typingEl = showTypingIndicator();
 
             try {
-                const data = await apiQueryAdvisor(question);
+                const data = await apiQueryAdvisor(question, conversationId);
                 removeElement(typingEl);
+
+                // Store conversation ID for memory
+                if (data.conversation_id) {
+                    conversationId = data.conversation_id;
+                }
 
                 let responseHtml = formatAdvisorResponse(data.response || data.advice || 'No response received.');
 
@@ -354,6 +373,20 @@
             const btn = document.getElementById('btn-send');
             btn.disabled = !enabled;
             btn.textContent = enabled ? 'Send' : '...';
+        }
+
+        function startNewChat() {
+            conversationId = null;
+            const container = document.getElementById('chat-messages');
+            container.innerHTML = `
+                <div class="chat-message assistant">
+                    <div class="chat-avatar">🤖</div>
+                    <div class="chat-bubble">
+                        New conversation started! I still have access to all your financial data. How can I help?
+                    </div>
+                </div>
+            `;
+            document.getElementById('chat-input').focus();
         }
 
         function formatAdvisorResponse(text) {

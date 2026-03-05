@@ -27,7 +27,7 @@ from typing import Dict, Any, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, update, delete
 
-from app.models import Transaction, Budget, Goal, FinancialPlan
+from app.models import Transaction, Budget, Goal, FinancialPlan, Account
 from app.services import analytics, recurring_detection
 
 logger = logging.getLogger(__name__)
@@ -61,9 +61,21 @@ def _get_genai():
 
 AGENT_SYSTEM_PROMPT = """You are the 'Financial Intelligence Agent', an expert AI financial advisor with FULL access to the user's financial data and the ability to modify their budgets, goals, and financial plan.
 
+You have CONVERSATION MEMORY — you can see the full history of previous messages in this chat session. Reference previous answers and build on them naturally, like a real advisor.
+
 CAPABILITIES:
 - READ: transactions, budgets, goals, planner, recurring payments, anomalies, category breakdowns, monthly trends, merchant rankings
+- READ: bank/account data — transaction counts per institution, fee breakdowns by bank, income/expense per bank
+- READ: savings overview, net worth, rental properties, assets, loans from the planner
 - WRITE: create/update/delete budgets, create/update/delete goals, update planner sections, update transaction categories, bulk-assign planner categories
+
+CROSS-DATA ANALYSIS:
+You can and SHOULD combine data from multiple sources to answer questions. For example:
+- Combine account data + transactions to show fees by bank
+- Combine planner + budgets + transactions for complete financial picture
+- Combine savings goals + planner savings + transaction trends for projection
+- Use rental property data from planner + CIBC transactions for rental analysis
+- Use accounts summary + transaction counts to recommend consolidation
 
 RULES:
 1. ALWAYS use tools to look up real data before answering — never guess or assume numbers.
@@ -77,6 +89,8 @@ RULES:
 9. Use Canadian dollar formatting (CAD).
 10. Keep responses concise but thorough — quality over length.
 11. If a write operation fails, report the error clearly.
+12. When asked about bank fees, service charges, or account costs, use get_accounts_summary and get_transactions to find fee-related transactions grouped by institution.
+13. When asked about net worth, pull data from the planner (assets, loans, savings, rental properties) and combine with transaction data.
 
 RESPONSE FORMAT:
 - Use **bold** for key numbers and category names
@@ -188,6 +202,10 @@ FUNCTION_DECLARATIONS = [
                     "type": "STRING",
                     "description": "Filter by planner category (Income, Needs, Wants, Bills, Subscriptions, Insurance, Savings, Transfer)",
                 },
+                "institution": {
+                    "type": "STRING",
+                    "description": "Filter by bank/institution name (e.g. 'CIBC', 'TD', 'Scotiabank', 'RBC'). Partial match supported.",
+                },
             },
         },
     },
@@ -244,6 +262,22 @@ FUNCTION_DECLARATIONS = [
     {
         "name": "get_wants_spending",
         "description": "Get detailed spending breakdown for 'wants' categories (Dining, Entertainment, Shopping, Subscriptions). Useful for finding reduction opportunities.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {},
+        },
+    },
+    {
+        "name": "get_accounts_summary",
+        "description": "Get a summary of all user bank accounts grouped by institution. Shows account count, transaction count, total income, total expenses, and fee/service-charge transactions per bank. Essential for questions about banking fees, account consolidation, or per-bank analysis.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {},
+        },
+    },
+    {
+        "name": "get_savings_overview",
+        "description": "Get a comprehensive savings and net worth overview combining planner data (current savings, monthly savings, emergency fund, assets, loans, rental properties) with goals progress. Use for net worth questions, savings projections, and holistic financial health assessment.",
         "parameters": {
             "type": "OBJECT",
             "properties": {},
@@ -567,6 +601,11 @@ async def tool_get_transactions(
     if args.get("days_back"):
         cutoff = date.today() - timedelta(days=int(args["days_back"]))
         query = query.where(Transaction.date >= cutoff)
+    if args.get("institution"):
+        # Join with Account to filter by institution name
+        query = query.join(Account, Transaction.account_id == Account.id).where(
+            Account.institution_name.ilike(f"%{args['institution']}%")
+        )
 
     # Count total matches
     count_q = select(func.count()).select_from(query.subquery())
@@ -800,6 +839,190 @@ async def tool_get_wants_spending(
     return {
         "total_wants": _dec(wants_total),
         "categories": wants_detail,
+    }
+
+
+async def tool_get_accounts_summary(
+    user_id: str, db: AsyncSession, args: Dict,
+) -> Dict[str, Any]:
+    """Get all accounts grouped by institution with transaction stats."""
+    # Get all accounts
+    acct_result = await db.execute(
+        select(Account).where(Account.user_id == user_id)
+    )
+    accounts = acct_result.scalars().all()
+
+    if not accounts:
+        return {"institutions": [], "total_accounts": 0, "note": "No accounts found. Upload bank statements first."}
+
+    # Group accounts by institution
+    inst_map = {}  # institution -> list of account IDs
+    for a in accounts:
+        inst = a.institution_name or "Unknown"
+        if inst not in inst_map:
+            inst_map[inst] = {"accounts": [], "account_types": set()}
+        inst_map[inst]["accounts"].append(a.id)
+        inst_map[inst]["account_types"].add(a.account_type)
+
+    institutions = []
+    fee_categories = {"Bank Fees", "Service Charges", "Fees", "Bank Fee", "Banking Fees", "Account Fee", "Monthly Fee"}
+
+    for inst_name, info in inst_map.items():
+        acct_ids = info["accounts"]
+
+        # Total transaction count
+        count_q = select(func.count()).where(
+            and_(Transaction.user_id == user_id, Transaction.account_id.in_(acct_ids), Transaction.is_duplicate == False)
+        )
+        txn_count = (await db.execute(count_q)).scalar() or 0
+
+        # Total income
+        income_q = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+            and_(Transaction.user_id == user_id, Transaction.account_id.in_(acct_ids),
+                 Transaction.direction == "in", Transaction.is_duplicate == False)
+        )
+        total_income = (await db.execute(income_q)).scalar()
+
+        # Total expenses
+        expense_q = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+            and_(Transaction.user_id == user_id, Transaction.account_id.in_(acct_ids),
+                 Transaction.direction == "out", Transaction.is_duplicate == False)
+        )
+        total_expenses = (await db.execute(expense_q)).scalar()
+
+        # Fee-related transactions (check category and description)
+        fee_q = select(
+            func.count(),
+            func.coalesce(func.sum(Transaction.amount), 0),
+        ).where(
+            and_(
+                Transaction.user_id == user_id,
+                Transaction.account_id.in_(acct_ids),
+                Transaction.is_duplicate == False,
+                Transaction.direction == "out",
+                (
+                    Transaction.category.in_(fee_categories) |
+                    Transaction.description_raw.ilike("%fee%") |
+                    Transaction.description_raw.ilike("%service charge%") |
+                    Transaction.description_raw.ilike("%monthly charge%") |
+                    Transaction.description_raw.ilike("%account charge%") |
+                    Transaction.merchant_clean.ilike("%fee%")
+                ),
+            )
+        )
+        fee_result = await db.execute(fee_q)
+        fee_row = fee_result.one()
+        fee_count = fee_row[0] or 0
+        fee_total = fee_row[1] or Decimal("0")
+
+        institutions.append({
+            "institution": inst_name,
+            "account_count": len(acct_ids),
+            "account_types": list(info["account_types"]),
+            "transaction_count": txn_count,
+            "total_income": _dec(total_income),
+            "total_expenses": _dec(total_expenses),
+            "net_cash_flow": _dec(total_income - total_expenses),
+            "fee_transaction_count": fee_count,
+            "total_fees": _dec(fee_total),
+            "avg_fee_per_transaction": _dec(round(fee_total / max(fee_count, 1), 2)),
+        })
+
+    # Sort by transaction count descending
+    institutions.sort(key=lambda x: x["transaction_count"], reverse=True)
+
+    return {
+        "institutions": institutions,
+        "total_accounts": len(accounts),
+        "total_institutions": len(institutions),
+    }
+
+
+async def tool_get_savings_overview(
+    user_id: str, db: AsyncSession, args: Dict,
+) -> Dict[str, Any]:
+    """Get comprehensive savings and net worth overview from planner + goals."""
+    # Get planner data
+    plan_result = await db.execute(
+        select(FinancialPlan).where(FinancialPlan.user_id == user_id)
+    )
+    plan = plan_result.scalar_one_or_none()
+
+    from app.routes.planner import DEFAULT_PLAN
+    data = plan.plan_data if plan else DEFAULT_PLAN
+
+    savings = data.get("savings", {})
+    current_savings = savings.get("current_savings", 0)
+    monthly_savings = savings.get("monthly_savings", 0)
+    emergency_target = savings.get("emergency_target", 0)
+    emergency_months = savings.get("emergency_months", 4)
+
+    # Assets
+    assets = data.get("assets", [])
+    total_asset_value = sum(a.get("market_value", 0) for a in assets)
+    total_asset_loans = sum(a.get("loan_remaining", 0) for a in assets)
+
+    # Loans
+    loans = data.get("loans", [])
+    total_loan_balance = sum(ln.get("balance", 0) for ln in loans)
+
+    # Rental properties
+    rentals = data.get("rental_properties", [])
+    rental_market_value = sum(r.get("market_value", 0) for r in rentals)
+    rental_mortgage_remaining = sum(r.get("mortgage_remaining", 0) for r in rentals)
+    rental_monthly_income = sum(r.get("monthly_income", 0) for r in rentals)
+    rental_monthly_expenses = sum(r.get("monthly_expenses", 0) for r in rentals)
+    rental_monthly_mortgage = sum(r.get("mortgage", 0) for r in rentals)
+
+    # Net worth
+    net_worth = (
+        total_asset_value + rental_market_value + current_savings
+        - total_asset_loans - total_loan_balance - rental_mortgage_remaining
+    )
+
+    # Goals
+    goal_result = await db.execute(
+        select(Goal).where(Goal.user_id == user_id).order_by(Goal.target_date)
+    )
+    goals = goal_result.scalars().all()
+    goals_data = []
+    for g in goals:
+        remaining = g.target_amount - g.current_amount
+        days_left = (g.target_date - date.today()).days
+        months_left = max(days_left / 30.0, 0.1)
+        goals_data.append({
+            "name": g.name,
+            "target": _dec(g.target_amount),
+            "current": _dec(g.current_amount),
+            "remaining": _dec(remaining),
+            "target_date": str(g.target_date),
+            "months_left": round(months_left, 1),
+        })
+
+    return {
+        "current_savings": current_savings,
+        "monthly_savings": monthly_savings,
+        "emergency_target": emergency_target,
+        "emergency_months": emergency_months,
+        "assets": [{"name": a.get("name", ""), "market_value": a.get("market_value", 0), "loan_remaining": a.get("loan_remaining", 0)} for a in assets],
+        "total_asset_value": total_asset_value,
+        "total_asset_loans": total_asset_loans,
+        "loans": [{"name": ln.get("name", ""), "balance": ln.get("balance", 0), "rate": ln.get("rate", 0)} for ln in loans],
+        "total_loan_balance": total_loan_balance,
+        "rental_properties": [{"name": r.get("name", ""), "institution": r.get("institution", ""), "market_value": r.get("market_value", 0), "mortgage_remaining": r.get("mortgage_remaining", 0), "monthly_income": r.get("monthly_income", 0), "monthly_expenses": r.get("monthly_expenses", 0)} for r in rentals],
+        "rental_market_value": rental_market_value,
+        "rental_mortgage_remaining": rental_mortgage_remaining,
+        "rental_net_monthly": rental_monthly_income - rental_monthly_expenses - rental_monthly_mortgage,
+        "net_worth": net_worth,
+        "net_worth_breakdown": {
+            "assets_value": total_asset_value,
+            "rental_value": rental_market_value,
+            "savings": current_savings,
+            "minus_asset_loans": total_asset_loans,
+            "minus_other_loans": total_loan_balance,
+            "minus_rental_mortgages": rental_mortgage_remaining,
+        },
+        "goals": goals_data,
     }
 
 
@@ -1098,6 +1321,8 @@ TOOL_HANDLERS = {
     "get_planner_summary": tool_get_planner_summary,
     "get_anomalies": tool_get_anomalies,
     "get_wants_spending": tool_get_wants_spending,
+    "get_accounts_summary": tool_get_accounts_summary,
+    "get_savings_overview": tool_get_savings_overview,
     "create_budget": tool_create_budget,
     "update_budget": tool_update_budget,
     "delete_budget": tool_delete_budget,
@@ -1157,11 +1382,13 @@ async def get_advice(
     user_id: str,
     user_query: str,
     db: AsyncSession,
+    conversation_history: List[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """
     Main agent entry point.
     Runs a multi-turn function-calling loop with Gemini.
-    Returns the final response text and any actions taken.
+    Supports conversation memory via conversation_history.
+    Returns the final response text, actions taken, and messages for storage.
     """
     if not GOOGLE_API_KEY or GOOGLE_API_KEY == "your-google-api-key-here":
         return {
@@ -1183,7 +1410,19 @@ async def get_advice(
             system_instruction=AGENT_SYSTEM_PROMPT,
         )
 
-        chat = model.start_chat()
+        # Build chat history from previous conversation (if any)
+        gemini_history = []
+        if conversation_history:
+            for msg in conversation_history:
+                role = "model" if msg["role"] == "assistant" else "user"
+                gemini_history.append(
+                    genai.protos.Content(
+                        role=role,
+                        parts=[genai.protos.Part(text=msg["content"])],
+                    )
+                )
+
+        chat = model.start_chat(history=gemini_history if gemini_history else None)
 
         # Send initial user query
         response = await asyncio.to_thread(
