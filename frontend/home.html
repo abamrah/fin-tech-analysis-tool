@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Home — Financial Intelligence Engine</title>
     <link rel="stylesheet" href="/css/styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -10,14 +10,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0f172a">
     <style>
-        /* ─── Mobile Home Layout ───────────────────── */
+        /* ─── Home Layout ──────────────────────────── */
         body.home-page { background: var(--bg-primary); margin: 0; padding: 0; overflow: hidden; }
-        body.home-page .sidebar { display: none !important; }
-        body.home-page .mobile-menu-toggle { display: none !important; }
-        body.home-page .sidebar-overlay { display: none !important; }
-        body.home-page .app-container { display: flex; flex-direction: column; }
         body.home-page .main-content {
-            margin-left: 0 !important;
             padding: 0 !important;
             display: flex;
             flex-direction: column;
@@ -26,6 +21,24 @@
             max-height: 100vh;
             max-height: 100dvh;
             overflow: hidden;
+        }
+
+        /* Mobile: hide sidebar, no margin */
+        @media (max-width: 768px) {
+            body.home-page .sidebar { display: none !important; }
+            body.home-page .mobile-menu-toggle { display: none !important; }
+            body.home-page .sidebar-overlay { display: none !important; }
+            body.home-page .main-content { margin-left: 0 !important; }
+        }
+
+        /* Desktop: sidebar visible, content beside it */
+        @media (min-width: 769px) {
+            body.home-page .bottom-tabs { display: none !important; }
+            body.home-page #more-menu { display: none !important; }
+            body.home-page .main-content {
+                margin-left: 260px;
+                max-width: none;
+            }
         }
 
         /* ─── Hub Hero Bar ─────────────────────────── */
@@ -319,15 +332,7 @@
             font-size: 0.72rem;
         }
 
-        /* ─── Desktop: wider layout ──────────────── */
-        @media (min-width: 769px) {
-            body.home-page .main-content {
-                max-width: 520px;
-                margin: 0 auto !important;
-                border-left: 1px solid var(--border);
-                border-right: 1px solid var(--border);
-            }
-        }
+
     </style>
 </head>
 <body class="home-page">
@@ -451,6 +456,7 @@
     </style>
 
     <script src="/js/api.js"></script>
+    <script src="/js/navbar.js"></script>
     <script>
         let isLoading = false;
         let conversationId = sessionStorage.getItem('advisor_conversation_id') || null;
@@ -458,6 +464,7 @@
 
         document.addEventListener('DOMContentLoaded', async () => {
             if (!requireAuth()) return;
+            if (typeof renderNavbar === 'function') renderNavbar();
             document.getElementById('chat-input').focus();
             loadHubBar();
             if (conversationId) restoreConversation(conversationId);
