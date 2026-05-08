@@ -138,6 +138,84 @@
             background: rgba(59,130,246,0.08);
         }
 
+        /* ─── Landing Value Section ──────────────── */
+        .landing-value {
+            flex-shrink: 0;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(160deg, rgba(30,41,59,0.95), rgba(15,23,42,0.9));
+        }
+        .value-head {
+            margin-bottom: 0.55rem;
+        }
+        .value-kicker {
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #93c5fd;
+            font-weight: 700;
+            margin-bottom: 0.15rem;
+        }
+        .value-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.3;
+        }
+        .value-subtitle {
+            margin-top: 0.2rem;
+            font-size: 0.76rem;
+            color: var(--text-secondary);
+            line-height: 1.45;
+        }
+        .value-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.45rem;
+        }
+        .value-card {
+            background: rgba(15,23,42,0.7);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.55rem 0.6rem;
+        }
+        .value-card-title {
+            font-size: 0.74rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.12rem;
+        }
+        .value-card-desc {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+        .ocr-flow {
+            display: flex;
+            gap: 0.4rem;
+            overflow-x: auto;
+            margin-top: 0.55rem;
+            padding-bottom: 0.1rem;
+            -webkit-overflow-scrolling: touch;
+        }
+        .ocr-flow::-webkit-scrollbar { display: none; }
+        .ocr-step {
+            flex-shrink: 0;
+            padding: 0.35rem 0.55rem;
+            border: 1px dashed rgba(148,163,184,0.45);
+            border-radius: 999px;
+            background: rgba(15,23,42,0.5);
+            font-size: 0.66rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        @media (max-width: 480px) {
+            .value-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
         /* ─── Chat Area ───────────────────────────── */
         .home-chat {
             flex: 1;
@@ -378,11 +456,47 @@
 
         <!-- Chat Area -->
         <div class="home-chat">
+            <section class="landing-value">
+                <div class="value-head">
+                    <div class="value-kicker">What this app offers</div>
+                    <div class="value-title">OCR-powered finance assistant for messy, real-world statements</div>
+                    <div class="value-subtitle">Upload PDFs or screenshots and the platform converts them into clean transactions, detects categories and recurring charges, then feeds smart budgets, forecasts, and goal planning. Agentic workflows coordinate OCR, normalization, analytics, and tool actions, while LLM services power reasoning, explanations, and next-best financial recommendations.</div>
+                </div>
+
+                <div class="value-grid">
+                    <article class="value-card">
+                        <div class="value-card-title">📄 High-accuracy OCR parsing</div>
+                        <div class="value-card-desc">Extracts date, merchant, debit/credit, and amount from bank statements and receipt-like docs.</div>
+                    </article>
+                    <article class="value-card">
+                        <div class="value-card-title">🧹 Data cleanup & normalization</div>
+                        <div class="value-card-desc">Standardizes merchant names and transaction text so analytics and categorization stay consistent.</div>
+                    </article>
+                    <article class="value-card">
+                        <div class="value-card-title">🧠 Agentic + LLM intelligence layer</div>
+                        <div class="value-card-desc">Agentic framework routes each task to the right service, and LLM-enabled advisors classify context, flag anomalies, and explain the why behind each insight.</div>
+                    </article>
+                    <article class="value-card">
+                        <div class="value-card-title">📈 Planning that updates itself</div>
+                        <div class="value-card-desc">Every new upload improves budgets, savings goals, and 90-day forecast recommendations.</div>
+                    </article>
+                </div>
+
+                <div class="ocr-flow" aria-label="OCR workflow steps">
+                    <div class="ocr-step">Upload statement</div>
+                    <div class="ocr-step">OCR extract</div>
+                    <div class="ocr-step">Normalize records</div>
+                    <div class="ocr-step">Categorize spend</div>
+                    <div class="ocr-step">Generate insights</div>
+                    <div class="ocr-step">Update plan</div>
+                </div>
+            </section>
+
             <div class="home-messages" id="chat-messages">
                 <div class="chat-message assistant">
                     <div class="chat-avatar">🤖</div>
                     <div class="chat-bubble">
-                        Hey! 👋 I'm your <strong>AI Money Coach</strong>. Ask me anything about your finances — I can check your spending, budgets, goals, and even make changes for you.<br><br>
+                        Hey! 👋 I'm your <strong>AI Money Coach</strong>. I use agentic workflows to orchestrate OCR extraction, data cleanup, and financial actions, while LLM reasoning helps me answer questions, explain decisions, and suggest better next steps.<br><br>
                         Tap a chip above to get started, or just type a question!
                     </div>
                 </div>
