@@ -6,54 +6,530 @@
     <title>Financial Intelligence Engine</title>
     <link rel="stylesheet" href="/css/styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body.landing-page {
+            background:
+                radial-gradient(circle at 10% 0%, rgba(34, 197, 94, 0.12), transparent 30%),
+                radial-gradient(circle at 90% 10%, rgba(59, 130, 246, 0.14), transparent 30%),
+                var(--bg-primary);
+        }
+
+        .landing-shell {
+            max-width: 1160px;
+            margin: 0 auto;
+            padding: 1.25rem;
+        }
+
+        .landing-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.9rem 0.25rem;
+            gap: 0.75rem;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        .brand-badge {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #0ea5e9, #22c55e);
+            color: #fff;
+            font-size: 0.9rem;
+        }
+
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .hero {
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: 1rem;
+            margin-top: 0.7rem;
+        }
+
+        .hero-card,
+        .panel {
+            background: rgba(30, 41, 59, 0.92);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .hero-card {
+            padding: 1.5rem;
+        }
+
+        .hero-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: #93c5fd;
+            font-size: 0.74rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 0.65rem;
+        }
+
+        .hero-title {
+            font-size: 2rem;
+            line-height: 1.15;
+            margin-bottom: 0.7rem;
+        }
+
+        .hero-sub {
+            color: var(--text-secondary);
+            line-height: 1.65;
+            font-size: 0.95rem;
+            max-width: 62ch;
+        }
+
+        .hero-cta-row {
+            margin-top: 1.25rem;
+            display: flex;
+            gap: 0.55rem;
+            flex-wrap: wrap;
+        }
+
+        .hero-metric-row {
+            margin-top: 1.2rem;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.5rem;
+        }
+
+        .hero-metric {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.65rem;
+            background: rgba(15, 23, 42, 0.65);
+        }
+
+        .hero-metric .val {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            color: var(--text-primary);
+            font-weight: 700;
+        }
+
+        .hero-metric .lbl {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .visual-stack {
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.7rem;
+        }
+
+        .visual-block {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 0.7rem;
+            background: rgba(15, 23, 42, 0.7);
+        }
+
+        .visual-title {
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.45rem;
+            font-weight: 600;
+        }
+
+        .flow-strip {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+        }
+
+        .flow-pill {
+            font-size: 0.68rem;
+            border: 1px dashed rgba(148, 163, 184, 0.45);
+            color: var(--text-secondary);
+            border-radius: 999px;
+            padding: 0.28rem 0.5rem;
+            background: rgba(15, 23, 42, 0.4);
+        }
+
+        .section {
+            margin-top: 1rem;
+            padding: 1rem;
+        }
+
+        .section h2 {
+            font-size: 1.25rem;
+            margin-bottom: 0.35rem;
+        }
+
+        .section p.lead {
+            color: var(--text-secondary);
+            font-size: 0.92rem;
+            line-height: 1.6;
+            margin-bottom: 0.9rem;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.7rem;
+        }
+
+        .feature-card {
+            background: rgba(15, 23, 42, 0.72);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 0.8rem;
+        }
+
+        .feature-card h3 {
+            font-size: 0.95rem;
+            margin-bottom: 0.28rem;
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            font-size: 0.84rem;
+            line-height: 1.5;
+        }
+
+        .how-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.7rem;
+        }
+
+        .steps {
+            display: grid;
+            gap: 0.45rem;
+        }
+
+        .step {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.6rem;
+            background: rgba(15, 23, 42, 0.65);
+            font-size: 0.84rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .step strong {
+            color: var(--text-primary);
+            display: block;
+            margin-bottom: 0.15rem;
+            font-size: 0.86rem;
+        }
+
+        .chart-box {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.75rem;
+            background: rgba(15, 23, 42, 0.65);
+        }
+
+        .bars {
+            display: grid;
+            gap: 0.45rem;
+            margin-top: 0.3rem;
+        }
+
+        .bar-row {
+            display: grid;
+            grid-template-columns: 130px 1fr;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .bar-track {
+            height: 10px;
+            border-radius: 999px;
+            background: #233248;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #22c55e, #0ea5e9);
+        }
+
+        .insight-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.7rem;
+        }
+
+        .donut-wrap {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+
+        .donut {
+            width: 132px;
+            height: 132px;
+            border-radius: 50%;
+            background: conic-gradient(
+                #22c55e 0 30%,
+                #0ea5e9 30% 58%,
+                #f59e0b 58% 80%,
+                #64748b 80% 100%
+            );
+            position: relative;
+        }
+
+        .donut::after {
+            content: "Insight\A Score";
+            white-space: pre;
+            position: absolute;
+            inset: 26px;
+            background: var(--bg-primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.72rem;
+            line-height: 1.2;
+        }
+
+        .legend {
+            display: grid;
+            gap: 0.35rem;
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+        }
+
+        .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+        .cta-footer {
+            margin-top: 1rem;
+            padding: 1rem;
+            text-align: center;
+            background: linear-gradient(155deg, rgba(34,197,94,0.13), rgba(14,165,233,0.13));
+        }
+
+        .cta-footer p {
+            color: var(--text-secondary);
+            max-width: 70ch;
+            margin: 0.4rem auto 0.85rem;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 980px) {
+            .hero,
+            .feature-grid,
+            .how-grid,
+            .insight-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .hero-title {
+                font-size: 1.6rem;
+            }
+
+            .hero-metric-row {
+                grid-template-columns: 1fr;
+            }
+
+            .bar-row {
+                grid-template-columns: 90px 1fr;
+            }
+        }
+    </style>
 </head>
-<body>
-    <div class="auth-container">
-        <div class="auth-card" style="max-width:760px;">
-            <h1>💹 Financial Intelligence Engine</h1>
-            <p class="auth-subtitle">OCR-first financial platform with agentic workflows and LLM-powered advisory intelligence</p>
+<body class="landing-page">
+    <div class="landing-shell">
+        <header class="landing-nav">
+            <div class="brand">
+                <span class="brand-badge">AI</span>
+                Financial Intelligence Engine
+            </div>
+            <div class="nav-actions">
+                <a href="/login.html" class="btn btn-secondary btn-sm">Sign In</a>
+                <a href="/register.html" class="btn btn-primary btn-sm">Create Account</a>
+            </div>
+        </header>
 
-            <div style="margin-top:1.2rem;padding:1rem;border:1px solid var(--border);border-radius:12px;background:rgba(15,23,42,0.45);">
-                <h4 style="margin-bottom:0.5rem;color:var(--text-primary);">What this app offers</h4>
-                <p style="font-size:0.9rem;color:var(--text-secondary);line-height:1.55;">
-                    Upload bank statements or screenshots, and our OCR pipeline extracts transactions, normalizes messy descriptions,
-                    and turns them into categorized spending data. Agentic services orchestrate ingestion, analytics, anomaly checks,
-                    and action tools, while LLM reasoning provides explainable insights, recommendations, and next-step guidance.
+        <section class="hero">
+            <article class="hero-card">
+                <div class="hero-eyebrow">OCR + Agentic AI + Insight Automation</div>
+                <h1 class="hero-title">An in-depth AI finance copilot that reads statements, reasons across tools, and explains every decision.</h1>
+                <p class="hero-sub">
+                    Built for real bank exports and messy transaction text. The platform uses OCR to extract records from PDFs and image uploads,
+                    routes tasks through agentic workflows across parsing, normalization, categorization, anomaly checks, and planning tools,
+                    then applies LLM reasoning to deliver clear insights, budgets, forecasts, and actionable recommendations.
                 </p>
-
-                <div style="display:flex;flex-wrap:wrap;gap:0.45rem;margin-top:0.75rem;">
-                    <span class="badge badge-accent">Upload Statement</span>
-                    <span class="badge badge-accent">OCR Extract</span>
-                    <span class="badge badge-accent">Normalize</span>
-                    <span class="badge badge-accent">Categorize</span>
-                    <span class="badge badge-accent">Forecast</span>
-                    <span class="badge badge-accent">Advisor Actions</span>
+                <div class="hero-cta-row">
+                    <a href="/register.html" class="btn btn-primary">Start Free</a>
+                    <a href="/login.html" class="btn btn-secondary">Open Dashboard</a>
                 </div>
-            </div>
-
-            <div style="display:flex;flex-direction:column;gap:0.75rem;margin-top:2rem;">
-                <a href="/login.html" class="btn btn-primary btn-block" style="font-size:1rem;padding:0.85rem;">
-                    Sign In
-                </a>
-                <a href="/register.html" class="btn btn-secondary btn-block" style="font-size:1rem;padding:0.85rem;">
-                    Create Account
-                </a>
-            </div>
-
-            <div style="margin-top:2.5rem;padding-top:1.5rem;border-top:1px solid var(--border);">
-                <h4 style="margin-bottom:1rem;color:var(--text-secondary);">Features</h4>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;font-size:0.85rem;color:var(--text-muted);">
-                    <div>📄 OCR Statement Parsing</div>
-                    <div>🧹 Merchant Normalization</div>
-                    <div>🏷️ AI Auto-Categorization</div>
-                    <div>⚠️ Anomaly & Pattern Detection</div>
-                    <div>📊 Real-Time Analytics</div>
-                    <div>💰 Smart Budget Recommendations</div>
-                    <div>🎯 Goal & Planning Suite</div>
-                    <div>🤖 Agentic + LLM Advisor</div>
+                <div class="hero-metric-row">
+                    <div class="hero-metric">
+                        <div class="val">OCR-First</div>
+                        <div class="lbl">Statement ingestion</div>
+                    </div>
+                    <div class="hero-metric">
+                        <div class="val">Agentic</div>
+                        <div class="lbl">Multi-tool orchestration</div>
+                    </div>
+                    <div class="hero-metric">
+                        <div class="val">Explainable</div>
+                        <div class="lbl">LLM insight narratives</div>
+                    </div>
                 </div>
+            </article>
+
+            <aside class="panel visual-stack">
+                <div class="visual-block">
+                    <div class="visual-title">System Workflow</div>
+                    <div class="flow-strip">
+                        <span class="flow-pill">Upload</span>
+                        <span class="flow-pill">OCR Extract</span>
+                        <span class="flow-pill">Normalize</span>
+                        <span class="flow-pill">Categorize</span>
+                        <span class="flow-pill">Detect Anomalies</span>
+                        <span class="flow-pill">AI Insights</span>
+                        <span class="flow-pill">Plan & Act</span>
+                    </div>
+                </div>
+
+                <div class="visual-block">
+                    <div class="visual-title">Agentic Controller (visual)</div>
+                    <svg viewBox="0 0 520 180" width="100%" height="150" role="img" aria-label="Agentic controller workflow diagram">
+                        <defs>
+                            <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+                                <stop offset="0%" stop-color="#22c55e"></stop>
+                                <stop offset="100%" stop-color="#0ea5e9"></stop>
+                            </linearGradient>
+                        </defs>
+                        <rect x="190" y="62" width="140" height="56" rx="10" fill="url(#g1)"></rect>
+                        <text x="260" y="95" text-anchor="middle" fill="#ffffff" font-size="13" font-family="Inter">Agent Orchestrator</text>
+
+                        <rect x="18" y="20" width="115" height="40" rx="8" fill="#1e293b" stroke="#334155"></rect>
+                        <text x="76" y="44" text-anchor="middle" fill="#cbd5e1" font-size="12" font-family="Inter">OCR Parser</text>
+
+                        <rect x="18" y="122" width="115" height="40" rx="8" fill="#1e293b" stroke="#334155"></rect>
+                        <text x="76" y="146" text-anchor="middle" fill="#cbd5e1" font-size="12" font-family="Inter">Normalizer</text>
+
+                        <rect x="387" y="20" width="115" height="40" rx="8" fill="#1e293b" stroke="#334155"></rect>
+                        <text x="445" y="44" text-anchor="middle" fill="#cbd5e1" font-size="12" font-family="Inter">Insights LLM</text>
+
+                        <rect x="387" y="122" width="115" height="40" rx="8" fill="#1e293b" stroke="#334155"></rect>
+                        <text x="445" y="146" text-anchor="middle" fill="#cbd5e1" font-size="12" font-family="Inter">Budget/Goals</text>
+
+                        <line x1="133" y1="40" x2="190" y2="78" stroke="#38bdf8" stroke-width="2"></line>
+                        <line x1="133" y1="142" x2="190" y2="102" stroke="#38bdf8" stroke-width="2"></line>
+                        <line x1="330" y1="78" x2="387" y2="40" stroke="#22c55e" stroke-width="2"></line>
+                        <line x1="330" y1="102" x2="387" y2="142" stroke="#22c55e" stroke-width="2"></line>
+                    </svg>
+                </div>
+            </aside>
+        </section>
+
+        <section class="panel section">
+            <h2>Core Capability Areas</h2>
+            <p class="lead">The platform is split into specialized engines that work together under agentic control to handle ingestion, reasoning, and financial action execution.</p>
+            <div class="feature-grid">
+                <article class="feature-card">
+                    <h3>📄 OCR Intelligence</h3>
+                    <p>Reads scanned statements and mixed-quality bank exports. Extracts dates, merchants, debit-credit direction, and amounts with validation checks to reduce noisy entries.</p>
+                </article>
+                <article class="feature-card">
+                    <h3>🤖 Agentic AI Framework</h3>
+                    <p>Task-aware routing decides which service should run next: parser, categorizer, anomaly detector, planner, or tool execution layer. This enables reliable multi-step automation.</p>
+                </article>
+                <article class="feature-card">
+                    <h3>🧠 AI Insight Engine</h3>
+                    <p>LLM reasoning turns raw analytics into plain-language insights: spending narratives, risk warnings, optimization opportunities, and prioritized next actions.</p>
+                </article>
             </div>
-        </div>
+        </section>
+
+        <section class="how-grid">
+            <article class="panel section">
+                <h2>How OCR + Agentic AI Works</h2>
+                <p class="lead">From document upload to guided action, each stage is explicit and traceable.</p>
+                <div class="steps">
+                    <div class="step"><strong>1) Capture and Parse</strong>PDF/image statements are processed with OCR and transaction fields are extracted into structured records.</div>
+                    <div class="step"><strong>2) Normalize and Clean</strong>Merchant labels, timestamps, and amount directions are standardized for consistent analytics quality.</div>
+                    <div class="step"><strong>3) Agentic Routing</strong>An orchestration layer chooses downstream services based on intent, confidence, and detected anomalies.</div>
+                    <div class="step"><strong>4) Insight and Action</strong>LLM-backed advisors explain what changed, why it matters, and can trigger budgeting or planning updates.</div>
+                </div>
+            </article>
+
+            <article class="panel section">
+                <h2>Pipeline Coverage Chart</h2>
+                <p class="lead">Illustrative coverage across processing stages for a typical monthly statement cycle.</p>
+                <div class="chart-box">
+                    <div class="bars">
+                        <div class="bar-row"><span>OCR Extraction</span><div class="bar-track"><div class="bar-fill" style="width:92%"></div></div></div>
+                        <div class="bar-row"><span>Normalization</span><div class="bar-track"><div class="bar-fill" style="width:88%"></div></div></div>
+                        <div class="bar-row"><span>Categorization</span><div class="bar-track"><div class="bar-fill" style="width:90%"></div></div></div>
+                        <div class="bar-row"><span>Anomaly Checks</span><div class="bar-track"><div class="bar-fill" style="width:76%"></div></div></div>
+                        <div class="bar-row"><span>Insight Generation</span><div class="bar-track"><div class="bar-fill" style="width:84%"></div></div></div>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <section class="insight-grid">
+            <article class="panel section">
+                <h2>AI Insight Composition</h2>
+                <p class="lead">Insights blend deterministic analytics with LLM interpretation for explainable recommendations.</p>
+                <div class="donut-wrap">
+                    <div class="donut" aria-hidden="true"></div>
+                    <div class="legend">
+                        <span><i class="dot" style="background:#22c55e"></i>Budget adherence signals</span>
+                        <span><i class="dot" style="background:#0ea5e9"></i>Recurring & trend detection</span>
+                        <span><i class="dot" style="background:#f59e0b"></i>Anomaly and risk flags</span>
+                        <span><i class="dot" style="background:#64748b"></i>User intent and context</span>
+                    </div>
+                </div>
+            </article>
+
+            <article class="panel section">
+                <h2>Example Outcome Panel</h2>
+                <p class="lead">After a new upload, the advisor can provide immediate, actionable recommendations.</p>
+                <div class="chart-box" style="display:grid;gap:0.5rem;">
+                    <div class="step"><strong>Finding</strong>Dining spend is +18% vs trailing 3-month baseline.</div>
+                    <div class="step"><strong>LLM Explanation</strong>Increase concentrated in weekend merchant clusters and one-off group charges.</div>
+                    <div class="step"><strong>Recommended Action</strong>Apply a smart budget cap and enable pacing alerts for the next cycle.</div>
+                </div>
+            </article>
+        </section>
+
+        <section class="panel cta-footer">
+            <h2>Ready to turn raw statements into explainable financial decisions?</h2>
+            <p>Start with OCR ingestion, let the agentic AI framework orchestrate analysis, and get insight-first recommendations you can actually act on.</p>
+            <div class="hero-cta-row" style="justify-content:center;">
+                <a href="/register.html" class="btn btn-primary">Create Your Account</a>
+                <a href="/login.html" class="btn btn-secondary">Sign In</a>
+            </div>
+        </section>
     </div>
     <script src="/js/api.js"></script>
     <script>
